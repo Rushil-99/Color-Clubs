@@ -1596,17 +1596,9 @@ function CreateWidget({tk, onCreated}) {
       setShow(false); setName(""); setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
     } catch(err) {
       console.error("Supabase insert error:", err);
-      const msg = err?.message || err?.error_description || String(err);
-      setSubmitError(msg);
-      // Save locally so user doesn't lose their work
-      const localP = {
-        id: Date.now(), name: paletteName,
-        themes: autoThemes(colors), likes: 0,
-        date: new Date().toISOString().slice(0,10), liked: false,
-        colors: colors.map(hex => { const rgb=hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
-      };
-      onCreated && onCreated(localP);
-      setShow(false); setName(""); setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+      const msg = err?.message || err?.code || err?.error_description || JSON.stringify(err);
+      setSubmitError("DB error: " + msg + " — Check Supabase RLS policies (Table → Authentication → RLS). Add INSERT policy for anon role.");
+      // DON'T close modal — let user see the error
     } finally {
       setSubmitting(false);
     }
@@ -1775,12 +1767,35 @@ function CreateWidget({tk, onCreated}) {
                   </button>
                 </div>
                 {submitError && (
-                  <div style={{marginTop:"0.6rem",padding:"0.5rem 0.7rem",background:"#fff0f0",
-                    border:"1px solid #ffaaaa",fontFamily:"'DM Sans',sans-serif",
-                    fontSize:"0.65rem",color:"#cc0000",fontWeight:600,wordBreak:"break-all"}}>
-                    ⚠ DB error: {submitError}
+                  <div style={{marginTop:"0.6rem",padding:"0.65rem 0.75rem",background:"#fff0f0",
+                    border:"1.5px solid #cc0000",fontFamily:"'DM Sans',sans-serif",
+                    fontSize:"0.62rem",color:"#cc0000",fontWeight:600,lineHeight:1.5}}>
+                    {submitError}
+                    <div style={{marginTop:"0.4rem",opacity:0.7,fontWeight:400}}>
+                      Fix: Go to Supabase → Table Editor → palettes → Auth/RLS → Add policy: <strong>INSERT for anon</strong> with <code>true</code> expression.
+                    </div>
                   </div>
                 )}
+                <button
+                  onClick={async () => {
+                    setSubmitError(null);
+                    const testPayload = { name: "__TEST__", colors: [{hex:"#FF0000"}], themes: ["test"], likes: 0 };
+                    const { data, error } = await _supabase.from("palettes").insert([testPayload]).select().single();
+                    if (error) {
+                      setSubmitError("TEST FAILED — " + (error.message || error.code || JSON.stringify(error)));
+                    } else {
+                      // Clean up test row
+                      await _supabase.from("palettes").delete().eq("id", data.id);
+                      setSubmitError("✓ TEST PASSED — Supabase insert works! Try submitting your palette again.");
+                    }
+                  }}
+                  style={{marginTop:"0.5rem",width:"100%",background:"transparent",
+                    border:"1px dashed #aaaaaa",padding:"0.35rem",
+                    color:"#888888",fontFamily:"'DM Sans',sans-serif",
+                    fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.06em",
+                    textTransform:"uppercase",cursor:"pointer"}}>
+                  🔬 Test DB Connection
+                </button>
               </div>
             )}
 
