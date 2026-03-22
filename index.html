@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Color Clubs — Palette Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body,#root{height:100%;}
+  body{font-family:'DM Sans',sans-serif;background:#ffffff;}
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-track{background:#ffffff;}
+  ::-webkit-scrollbar-thumb{background:#cccccc;border-radius:0;}
+  @keyframes fadeUp{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+  @keyframes pageIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  input[type=color]{-webkit-appearance:none;appearance:none;}
+  input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+  input[type=color]::-webkit-color-swatch{border:none;border-radius:0;}
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, createContext, useContext, useMemo } = React;
+const { createPortal } = ReactDOM;
+const { createClient } = supabase;
+
+// Use your actual Project URL and Publishable (anon) key here
+const SUPABASE_URL = 'https://qjoyvayollfbniwskfsr.supabase.co'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqb3l2YXlvbGxmYm5pd3NrZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzk3NzUsImV4cCI6MjA4OTc1NTc3NX0.P-oZF-MjQc8-SaiHY0FxkSk2J896RaJYKH4zXvDLCnY'; 
+
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+//  DATA 
+const PALETTES_RAW = [
+  { id:1,  name:"Desert Bloom",     themes:["warm","earthy","sunset","vintage"],    likes:1842, date:"2024-12-10",
+    colors:[{hex:"#E8C4A0",rgb:{r:232,g:196,b:160}},{hex:"#D4956A",rgb:{r:212,g:149,b:106}},{hex:"#B5673B",rgb:{r:181,g:103,b:59}},{hex:"#7A3B1E",rgb:{r:122,g:59,b:30}},{hex:"#3D1A0C",rgb:{r:61,g:26,b:12}}]},
+  { id:2,  name:"Cyber Neon",       themes:["cyber","neon","dark","electric"],       likes:3421, date:"2024-12-09",
+    colors:[{hex:"#0D0D1A",rgb:{r:13,g:13,b:26}},{hex:"#1A0533",rgb:{r:26,g:5,b:51}},{hex:"#7B2FBE",rgb:{r:123,g:47,b:190}},{hex:"#00F5FF",rgb:{r:0,g:245,b:255}},{hex:"#FF00AA",rgb:{r:255,g:0,b:170}}]},
+  { id:3,  name:"Forest Mist",      themes:["nature","cool","organic","earthy"],     likes:987,  date:"2024-12-08",
+    colors:[{hex:"#E8F0E9",rgb:{r:232,g:240,b:233}},{hex:"#A8C5A0",rgb:{r:168,g:197,b:160}},{hex:"#5A8A60",rgb:{r:90,g:138,b:96}},{hex:"#2E5E35",rgb:{r:46,g:94,b:53}}]},
+  { id:4,  name:"Sunshine Pop",     themes:["warm","sunshine","bright","cheerful"],  likes:2108, date:"2024-12-07",
+    colors:[{hex:"#FFF176",rgb:{r:255,g:241,b:118}},{hex:"#FFD600",rgb:{r:255,g:214,b:0}},{hex:"#FF8F00",rgb:{r:255,g:143,b:0}},{hex:"#E65100",rgb:{r:230,g:81,b:0}},{hex:"#BF360C",rgb:{r:191,g:54,b:12}}]},
+  { id:5,  name:"Ocean Depth",      themes:["cool","water","calm","ocean"],          likes:1654, date:"2024-12-06",
+    colors:[{hex:"#E0F7FA",rgb:{r:224,g:247,b:250}},{hex:"#4DD0E1",rgb:{r:77,g:208,b:225}},{hex:"#0097A7",rgb:{r:0,g:151,b:167}},{hex:"#006064",rgb:{r:0,g:96,b:100}}]},
+  { id:6,  name:"Vintage Rose",     themes:["vintage","warm","romantic","pastel"],   likes:1320, date:"2024-12-05",
+    colors:[{hex:"#F8E8E8",rgb:{r:248,g:232,b:232}},{hex:"#E8A0A0",rgb:{r:232,g:160,b:160}},{hex:"#C06070",rgb:{r:192,g:96,b:112}},{hex:"#8B3A4A",rgb:{r:139,g:58,b:74}},{hex:"#4A1525",rgb:{r:74,g:21,b:37}}]},
+  { id:7,  name:"Arctic Dawn",      themes:["cool","minimal","calm","pastel"],       likes:876,  date:"2024-12-04",
+    colors:[{hex:"#F0F4FF",rgb:{r:240,g:244,b:255}},{hex:"#B8C8F0",rgb:{r:184,g:200,b:240}},{hex:"#7090D8",rgb:{r:112,g:144,b:216}},{hex:"#3050A8",rgb:{r:48,g:80,b:168}}]},
+  { id:8,  name:"Lava Burst",       themes:["warm","electric","bright","neon"],      likes:2890, date:"2024-12-03",
+    colors:[{hex:"#FFF3E0",rgb:{r:255,g:243,b:224}},{hex:"#FFAB40",rgb:{r:255,g:171,b:64}},{hex:"#FF6D00",rgb:{r:255,g:109,b:0}},{hex:"#DD2C00",rgb:{r:221,g:44,b:0}},{hex:"#870000",rgb:{r:135,g:0,b:0}}]},
+  { id:9,  name:"Grape Fizz",       themes:["cyber","pastel","romantic","electric"], likes:1100, date:"2024-12-02",
+    colors:[{hex:"#F3E5F5",rgb:{r:243,g:229,b:245}},{hex:"#CE93D8",rgb:{r:206,g:147,b:216}},{hex:"#9C27B0",rgb:{r:156,g:39,b:176}},{hex:"#6A1B9A",rgb:{r:106,g:27,b:154}}]},
+  { id:10, name:"Slate & Sage",     themes:["minimal","earthy","nature","calm"],     likes:654,  date:"2024-12-01",
+    colors:[{hex:"#ECEFF1",rgb:{r:236,g:239,b:241}},{hex:"#90A4AE",rgb:{r:144,g:164,b:174}},{hex:"#607D8B",rgb:{r:96,g:125,b:139}},{hex:"#78909C",rgb:{r:120,g:144,b:156}},{hex:"#37474F",rgb:{r:55,g:71,b:79}}]},
+  { id:11, name:"Tropical Storm",   themes:["bright","cheerful","sunshine","electric"], likes:3150, date:"2024-11-30",
+    colors:[{hex:"#CCFF90",rgb:{r:204,g:255,b:144}},{hex:"#69F0AE",rgb:{r:105,g:240,b:174}},{hex:"#00E5FF",rgb:{r:0,g:229,b:255}},{hex:"#651FFF",rgb:{r:101,g:31,b:255}},{hex:"#D500F9",rgb:{r:213,g:0,b:249}}]},
+  { id:12, name:"Autumn Embers",    themes:["warm","vintage","earthy","sunset"],     likes:1430, date:"2024-11-29",
+    colors:[{hex:"#EFEBE9",rgb:{r:239,g:235,b:233}},{hex:"#D7CCC8",rgb:{r:215,g:204,b:200}},{hex:"#A1887F",rgb:{r:161,g:136,b:127}},{hex:"#6D4C41",rgb:{r:109,g:76,b:65}}]},
+  { id:13, name:"Midnight Run",     themes:["dark","cyber","minimal","cool"],        likes:2200, date:"2024-11-28",
+    colors:[{hex:"#0A0A0F",rgb:{r:10,g:10,b:15}},{hex:"#1C1C2E",rgb:{r:28,g:28,b:46}},{hex:"#2D2D44",rgb:{r:45,g:45,b:68}},{hex:"#4A4A6A",rgb:{r:74,g:74,b:106}},{hex:"#7A7AAA",rgb:{r:122,g:122,b:170}}]},
+  { id:14, name:"Cherry Blossom",   themes:["pastel","romantic","calm","vintage"],   likes:1875, date:"2024-11-27",
+    colors:[{hex:"#FDE8F0",rgb:{r:253,g:232,b:240}},{hex:"#F9AABF",rgb:{r:249,g:170,b:191}},{hex:"#E05C85",rgb:{r:224,g:92,b:133}},{hex:"#B03060",rgb:{r:176,g:48,b:96}}]},
+  { id:15, name:"Volt Grid",        themes:["neon","electric","cyber","dark"],       likes:2750, date:"2024-11-26",
+    colors:[{hex:"#111111",rgb:{r:17,g:17,b:17}},{hex:"#1A1A1A",rgb:{r:26,g:26,b:26}},{hex:"#C6FF00",rgb:{r:198,g:255,b:0}},{hex:"#76FF03",rgb:{r:118,g:255,b:3}}]},
+  { id:16, name:"Clay & Cream",     themes:["earthy","minimal","warm","organic"],    likes:543,  date:"2024-11-25",
+    colors:[{hex:"#FAF5EE",rgb:{r:250,g:245,b:238}},{hex:"#E8D5BE",rgb:{r:232,g:213,b:190}},{hex:"#C4A882",rgb:{r:196,g:168,b:130}},{hex:"#8B7355",rgb:{r:139,g:115,b:85}},{hex:"#5C4A32",rgb:{r:92,g:74,b:50}}]},
+  { id:17, name:"Watermelon Crush", themes:["bright","warm","cheerful"],             likes:1200, date:"2024-11-24",
+    colors:[{hex:"#FF6B6B",rgb:{r:255,g:107,b:107}},{hex:"#FF8E53",rgb:{r:255,g:142,b:83}},{hex:"#4ECB71",rgb:{r:78,g:203,b:113}}]},
+  { id:18, name:"Lavender Haze",    themes:["pastel","calm","romantic","minimal"],   likes:1680, date:"2024-11-23",
+    colors:[{hex:"#E8E0F7",rgb:{r:232,g:224,b:247}},{hex:"#C9B8E8",rgb:{r:201,g:184,b:232}},{hex:"#9B7EC8",rgb:{r:155,g:126,b:200}},{hex:"#6B4FA0",rgb:{r:107,g:79,b:160}},{hex:"#3D2068",rgb:{r:61,g:32,b:104}},{hex:"#1A0A30",rgb:{r:26,g:10,b:48}}]},
+  { id:19, name:"Rust & Iron",      themes:["earthy","dark","vintage","minimal"],    likes:432,  date:"2024-11-22",
+    colors:[{hex:"#8B4513",rgb:{r:139,g:69,b:19}},{hex:"#CD853F",rgb:{r:205,g:133,b:63}},{hex:"#696969",rgb:{r:105,g:105,b:105}}]},
+  { id:20, name:"Cotton Candy Sky", themes:["pastel","cheerful","bright"],           likes:2050, date:"2024-11-21",
+    colors:[{hex:"#FFD1DC",rgb:{r:255,g:209,b:220}},{hex:"#FFB7C5",rgb:{r:255,g:183,b:197}},{hex:"#B5EAD7",rgb:{r:181,g:234,b:215}},{hex:"#C7CEEA",rgb:{r:199,g:206,b:234}},{hex:"#FFDAC1",rgb:{r:255,g:218,b:193}},{hex:"#E2F0CB",rgb:{r:226,g:240,b:203}},{hex:"#F0C2F0",rgb:{r:240,g:194,b:240}}]},
+];
+
+// Mutable palette state with liked flag — lives outside React for simplicity
+const PALETTE_STATE = PALETTES_RAW.map(p => ({...p, liked:false}));
+function getPalettes() { return PALETTE_STATE; }
+
+// Alias used throughout
+const PALETTES = PALETTE_STATE;
+
+const ALL_THEMES = [...new Set(PALETTES.flatMap(p => p.themes))].sort();
+
+function randHex() {
+  return "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6,"0");
+}
+function randPaletteColors(n=4) {
+  return Array.from({length:n}, () => { const h=randHex(); return {hex:h, rgb:hexToRgb(h)||{r:0,g:0,b:0}}; });
+}
+
+const NAMED_COLORS = [
+  {hex:"#FF4D4D",name:"Crimson Red"},{hex:"#FF8C42",name:"Tangerine"},{hex:"#FFD700",name:"Golden Yellow"},
+  {hex:"#ADFF2F",name:"Lime Green"},{hex:"#4CAF50",name:"Forest Green"},{hex:"#00BCD4",name:"Cyan Sky"},
+  {hex:"#2196F3",name:"Royal Blue"},{hex:"#3F51B5",name:"Indigo"},{hex:"#9C27B0",name:"Deep Purple"},
+  {hex:"#E91E63",name:"Hot Pink"},{hex:"#FF5252",name:"Coral Red"},{hex:"#FF80AB",name:"Bubblegum"},
+  {hex:"#795548",name:"Cocoa Brown"},{hex:"#607D8B",name:"Steel Slate"},{hex:"#009688",name:"Teal"},
+  {hex:"#FFC107",name:"Amber"},{hex:"#8BC34A",name:"Leaf Green"},{hex:"#03A9F4",name:"Sky Blue"},
+  {hex:"#F5F5F5",name:"Soft White"},{hex:"#212121",name:"Charcoal"},{hex:"#FF6B6B",name:"Watermelon"},
+  {hex:"#C0392B",name:"Deep Red"},{hex:"#27AE60",name:"Emerald"},{hex:"#8E44AD",name:"Violet"},
+];
+
+const COUNT_TILES = [{label:"Any",n:0},{label:"2",n:2},{label:"3",n:3},{label:"4",n:4},{label:"5",n:5},{label:"6",n:6},{label:"7+",n:99}];
+
+//  THEME TOKENS 
+const TK = {
+  dark:{
+    bg:"#ffffff",bg2:"#f5f5f5",
+    sidebar:"#ffffff",sidebarBorder:"#dddddd",
+    card:"#f8f8f8",cardBorder:"#dddddd",
+    header:"#ffffff",headerBorder:"#dddddd",
+    text:"#000000",textSub:"#555555",textMuted:"#888888",
+    input:"#ffffff",inputBorder:"#aaaaaa",inputText:"#000000",
+    chip:"#f0f0f0",chipBorder:"#cccccc",chipText:"#555555",
+    accent:"#7C3AED",accentLight:"#ffffff",accentBg:"#2D1B69",accentBorder:"#ffffff",
+    danger:"#cc0000",dangerBg:"#fff0f0",dangerBorder:"#ffaaaa",
+    tag:"#eeeeee",tagText:"#000000",
+    scroll:"#cccccc",divider:"#eeeeee"}};
+
+//  CONTEXT 
+const AppCtx = createContext(null);
+const useApp = () => useContext(AppCtx);
+
+//  HELPERS 
+function hexToRgb(hex) {
+  const c = hex.replace("#","");
+  if (c.length !== 6) return null;
+  return { r:parseInt(c.slice(0,2),16), g:parseInt(c.slice(2,4),16), b:parseInt(c.slice(4,6),16) };
+}
+function colorDist(a,b) { return Math.sqrt((a.r-b.r)**2+(a.g-b.g)**2+(a.b-b.b)**2); }
+function lum(hex) { const rgb=hexToRgb(hex); if(!rgb) return 0.5; return 0.2126*rgb.r/255+0.7152*rgb.g/255+0.0722*rgb.b/255; }
+function isDark(hex) { return lum(hex) < 0.38; }
+function hexAlpha(hex,a) { const rgb=hexToRgb(hex); if(!rgb) return "transparent"; return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`; }
+
+// Build a dynamic background string from a palette
+function paletteBg(palette, baseBg) {
+  const c0  = palette.colors[0].hex;
+  const cMi = palette.colors[Math.floor(palette.colors.length / 2)].hex;
+  const cL  = palette.colors[palette.colors.length - 1].hex;
+  return `radial-gradient(ellipse at 0% 0%, ${c0} 0%, transparent 45%),
+          radial-gradient(ellipse at 100% 20%, ${cMi} 0%, transparent 45%),
+          radial-gradient(ellipse at 40% 100%, ${cL} 0%, transparent 45%),
+          ${baseBg}`;
+}
+
+//  TOAST 
+function Toast({msg, onDone}) {
+  useEffect(() => { const t = setTimeout(onDone, 2400); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{position:"fixed",bottom:"2rem",left:"50%",transform:"translateX(-50%)",
+      background:"#000000",color:"#ffffff",padding:"0.7rem 1.5rem",borderRadius:"0.35rem",
+      fontFamily:"'DM Sans',sans-serif",fontSize:"0.84rem",zIndex:9999,
+      boxShadow:"0 8px 0 rgba(0,0,0,0.15)",animation:"fadeUp .3s ease",
+      whiteSpace:"nowrap",border:"1px solid #000000"}}>
+      {msg}
+    </div>
+  );
+}
+
+//  HOVER BUTTON (generic, hover styles applied via prop) 
+function Btn({onClick, style:s={}, hover:h={}, children, ...rest}) {
+  const [hov, setHov] = useState(false);
+  const merged = {...s, ...(hov ? h : {})};
+  return (
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{...merged, transition:"all .18s cubic-bezier(.4,0,.2,1)", cursor:"pointer",
+        border: merged.border || "none"}}
+      {...rest}>
+      {children}
+    </button>
+  );
+}
+
+//  SECTION LABEL 
+function SLbl({children, tk}) {
+  return (
+    <div style={{color:tk.textMuted,fontSize:"0.63rem",fontWeight:700,
+      letterSpacing:"0.1em",textTransform:"uppercase",
+      marginBottom:"0.55rem",fontFamily:"'DM Sans',sans-serif"}}>
+      {children}
+    </div>
+  );
+}
+
+//  PALETTE CARD 
+function PaletteCard({palette, onClick, onHover}) {
+  const {palace, addToPalace, removeFromPalace, tk, likePalette, likedIds} = useApp();
+  const saved  = palace.some(p => p.id === palette.id);
+  const liked  = likedIds && likedIds.includes(palette.id);
+  const [hov, setHov] = useState(false);
+  const [likeCount, setLikeCount] = useState(palette.likes || 0);
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+    likePalette(palette.id);
+    setLikeCount(c => liked ? c-1 : c+1);
+  };
+
+  const bgColor = palette.colors[0].hex;
+  const accentC = palette.colors[Math.min(1, palette.colors.length-1)].hex;
+  const dark    = isDark(bgColor);
+  const textC   = dark ? "#ffffff" : "#000000";
+  const mutedC  = dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.4)";
+  const pillBg  = dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.1)";
+  const pillBdr = dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.12)";
+
+  return (
+    <div
+      onClick={() => onClick(palette)}
+      onMouseEnter={() => { setHov(true); onHover && onHover(palette); }}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: bgColor,
+        borderRadius: "0.55rem", overflow: "hidden", cursor: "pointer",
+        border: `2px solid ${hov ? accentC : "transparent"}`,
+        transform: hov ? "translateY(-5px) scale(1.01)" : "translateY(0) scale(1)",
+        boxShadow: hov ? `0 18px 44px rgba(0,0,0,0.65), 0 0 0 1px ${accentC}` : "0 3px 12px rgba(0,0,0,0.35)",
+        transition: "all .2s cubic-bezier(.4,0,.2,1)",
+        position: "relative",
+      }}>
+
+      {/* Ghost outline name */}
+      <div style={{
+        position:"absolute", top:"0.2rem", left:"0.55rem",
+        fontSize:"clamp(1.6rem,4.5vw,2.4rem)", fontWeight:900, lineHeight:0.88,
+        fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+        color:"transparent",
+        WebkitTextStroke:`1.5px ${dark?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`,
+        userSelect:"none", whiteSpace:"nowrap", overflow:"hidden",
+        pointerEvents:"none", zIndex:0, letterSpacing:"-0.04em", maxWidth:"100%"
+      }}>{palette.name.toUpperCase()}</div>
+
+      {/* Expandable color blocks — the main thumbnail */}
+      <div style={{display:"flex", height:120, position:"relative", zIndex:2, marginTop:"2.6rem"}}>
+        {palette.colors.map((c,i) => (
+          <div key={i}
+            style={{flex:1, background:c.hex, transition:"flex .28s cubic-bezier(.4,0,.2,1)",
+              display:"flex", flexDirection:"column", justifyContent:"flex-end", padding:"0.4rem 0.35rem",
+              overflow:"hidden", position:"relative"}}
+            onMouseEnter={e=>e.currentTarget.style.flex="3"}
+            onMouseLeave={e=>e.currentTarget.style.flex="1"}>
+            {/* Hex label shown on expand */}
+            <span style={{
+              fontFamily:"'DM Sans',sans-serif", fontSize:"0.52rem", fontWeight:700,
+              color: isDark(c.hex) ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.65)",
+              letterSpacing:"0.04em", opacity: hov ? 1 : 0, transition:"opacity .2s",
+              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"
+            }}>{c.hex.toUpperCase()}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Info footer */}
+      <div style={{padding:"0.7rem 0.9rem 0.8rem", position:"relative", zIndex:2,
+        background: dark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.72)",
+        backdropFilter:"blur(4px)"}}>
+
+        {/* Name */}
+        <div style={{
+          fontFamily:"'Space Grotesk','DM Sans',sans-serif", fontWeight:900,
+          fontSize:"0.95rem", color:textC, letterSpacing:"-0.025em",
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+          marginBottom:"0.32rem"
+        }}>{palette.name.toUpperCase()}</div>
+
+        {/* Theme pills */}
+        <div style={{display:"flex", gap:"0.2rem", flexWrap:"wrap", marginBottom:"0.55rem"}}>
+          {palette.themes.slice(0,3).map(t => (
+            <span key={t} style={{
+              fontFamily:"'DM Sans',sans-serif", fontSize:"0.52rem", fontWeight:700,
+              background: pillBg, color: textC,
+              padding:"0.08rem 0.38rem", letterSpacing:"0.07em", textTransform:"uppercase",
+              border:`1px solid ${pillBdr}`
+            }}>{t}</span>
+          ))}
+        </div>
+
+        {/* Bottom row */}
+        <div style={{display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+          <button onClick={handleLike}
+            style={{display:"flex", alignItems:"center", gap:"0.2rem", background:"none",
+              border:"none", cursor:"pointer", color: liked ? "#F87171" : mutedC,
+              fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700,
+              transition:"color .15s", padding:0}}>
+            <span style={{fontSize:"0.72rem"}}>♥</span> {likeCount}
+          </button>
+          <Btn
+            onClick={e => { e.stopPropagation(); saved ? removeFromPalace(palette.id) : addToPalace(palette); }}
+            style={{
+              background: saved ? (dark?"rgba(255,255,255,0.9)":"rgba(0,0,0,0.85)") : pillBg,
+              border:`1.5px solid ${saved ? (dark?"#fff":"#000") : pillBdr}`,
+              borderRadius:"0.2rem", padding:"0.2rem 0.5rem",
+              color: saved ? (dark?"#000":"#fff") : textC,
+              fontSize:"0.72rem", fontFamily:"'DM Sans',sans-serif"
+            }}
+            hover={{background: dark?"rgba(0,0,0,0.95)":"rgba(0,0,0,0.85)", borderColor: dark?"#fff":"#000", color: dark?"#000":"#fff"}}>
+            {saved ? "★" : "☆"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+//  DETAILS PAGE — full-bleed palette immersion
+function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavigate}) {
+  const {palace, addToPalace, removeFromPalace, tk, likePalette, likedIds} = useApp();
+  const saved = palace.some(p => p.id === palette.id);
+  const [toast, setToast] = useState(null);
+  const [copiedHex, setCopiedHex] = useState(null);
+  const copy = (txt, lbl) => {
+    navigator.clipboard && navigator.clipboard.writeText(txt);
+    setCopiedHex(txt);
+    setToast(`Copied ${lbl}`);
+    setTimeout(() => setCopiedHex(null), 1200);
+  };
+
+  const similar = PALETTES.filter(p => p.id !== palette.id && p.themes.some(t => palette.themes.includes(t))).slice(0,4);
+  const colors   = palette.colors;
+  const c0  = colors[0].hex;
+  const cM  = colors[Math.floor(colors.length/2)].hex;
+  const cL  = colors[colors.length-1].hex;
+  const c1  = colors[Math.min(1, colors.length-1)].hex;
+
+  // Dominant bg = first color, text contrast
+  const bgDark  = isDark(c0);
+  const textCol = bgDark ? "#FFFFFF" : "#000000";
+  const subCol  = bgDark ? "#00000055" : "#ffffff55"; // used for big outline text
+
+  // Shape decorations — deterministic from palette id
+  const shapes = useMemo(() => {
+    const seed = palette.id * 7;
+    const rnd  = (n, s=0) => ((seed + s*31 + n*17) % 100) / 100;
+    const cols = colors.map(c=>c.hex);
+    return Array.from({length:14}, (_,i) => ({
+      type   : ["rect","circle","triangle","halfcircle","diamond"][Math.floor(rnd(i,1)*5)],
+      x      : rnd(i,2)*90 + 5,
+      y      : rnd(i,3)*85 + 5,
+      size   : 40 + rnd(i,4)*140,
+      color  : cols[i % cols.length],
+      rotate : Math.floor(rnd(i,5)*360),
+      opacity: 0.18 + rnd(i,6)*0.35,
+    }));
+  }, [palette.id]);
+
+  function ShapeEl({s}) {
+    const base = {
+      position:"absolute",left:`${s.x}%`,top:`${s.y}%`,
+      width:s.size,height:s.size,opacity:s.opacity,
+      transform:`rotate(${s.rotate}deg)`,pointerEvents:"none",flexShrink:0
+    };
+    if (s.type==="circle")
+      return <div style={{...base,background:s.color,borderRadius:"50%"}}/>;
+    if (s.type==="rect")
+      return <div style={{...base,background:s.color,borderRadius:0}}/>;
+    if (s.type==="diamond")
+      return <div style={{...base,background:s.color,transform:`rotate(${s.rotate+45}deg)`}}/>;
+    if (s.type==="halfcircle")
+      return <div style={{...base,background:s.color,borderRadius:`${s.size}px ${s.size}px 0 0`}}/>;
+    // triangle via clip-path
+    return <div style={{...base,background:s.color,clipPath:"polygon(50% 0%,100% 100%,0% 100%)"}}/>;
+  }
+
+  return (
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",background:c0,position:"relative",overflow:"hidden"}}>
+      {toast && <Toast msg={toast} onDone={() => setToast(null)}/>}
+
+      {/* BG SHAPES — scattered over the page */}
+      <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>
+        {shapes.map((s,i) => <ShapeEl key={i} s={s}/>)}
+      </div>
+
+      {/* STICKY NAV */}
+      <div style={{position:"sticky",top:0,zIndex:100,
+        background:c0,borderBottom:`3px solid ${c1}`,
+        padding:"0.75rem 1.5rem",display:"flex",alignItems:"center",gap:"0.75rem",flexWrap:"wrap"}}>
+        <Btn onClick={onBack}
+          style={{background:isDark(c0)?textCol:"#000",border:"none",borderRadius:"0.25rem",
+            padding:"0.42rem 1rem",color:c0,fontFamily:"'DM Sans',sans-serif",fontSize:"0.78rem",fontWeight:800}}
+          hover={{opacity:0.8}}>
+          {historyDepth > 1 ? "← PREV" : "← BACK"}
+        </Btn>
+        <Btn onClick={onGoHome}
+          style={{background:"none",border:`2px solid ${textCol}`,borderRadius:"0.25rem",
+            padding:"0.38rem 0.85rem",color:textCol,fontFamily:"'DM Sans',sans-serif",fontSize:"0.78rem",fontWeight:700}}
+          hover={{background:textCol,color:c0}}>
+          HOME
+        </Btn>
+        <span style={{color:textCol,fontWeight:800,fontSize:"0.85rem",marginLeft:"0.5rem",opacity:0.6}}>
+          Color Clubs
+        </span>
+        <span style={{color:textCol,opacity:0.4}}>›</span>
+        <span style={{color:textCol,fontWeight:800,fontSize:"0.85rem",
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:180}}>
+          {palette.name.toUpperCase()}
+        </span>
+        <div style={{display:"flex",marginLeft:"auto",gap:"0.3rem"}}>
+          {colors.map((c,i)=>(
+            <div key={i} style={{width:22,height:22,background:c.hex,border:`2px solid ${textCol}`}}/>
+          ))}
+        </div>
+      </div>
+
+      {/* HERO — Spotify Wrapped style big type + color blocks */}
+      <div style={{position:"relative",zIndex:1,padding:"0"}}>
+
+        {/* Full-width color strip */}
+        <div style={{display:"flex",height:8}}>
+          {colors.map((c,i)=><div key={i} style={{flex:1,background:c.hex}}/>)}
+        </div>
+
+        {/* Big name — massive editorial */}
+        <div style={{padding:"3rem 1.5rem 1rem",position:"relative"}}>
+          {/* Ghost outline text behind */}
+          <div style={{
+            position:"absolute",top:"1.5rem",left:"1rem",
+            fontSize:"clamp(5rem,14vw,11rem)",fontWeight:900,lineHeight:0.85,
+            fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+            color:"transparent",
+            WebkitTextStroke:`3px ${isDark(c0) ? "#ffffff30" : "#00000022"}`,
+            userSelect:"none",whiteSpace:"nowrap",overflow:"hidden",
+            pointerEvents:"none",zIndex:0
+          }}>
+            {palette.name.toUpperCase()}
+          </div>
+          {/* Solid name on top */}
+          <div style={{
+            position:"relative",zIndex:1,
+            fontSize:"clamp(3.5rem,9vw,7rem)",fontWeight:900,lineHeight:0.9,
+            fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+            color:textCol,letterSpacing:"-0.03em",
+            paddingBottom:"1.5rem"
+          }}>
+            {palette.name.toUpperCase()}
+          </div>
+
+          {/* Theme pills */}
+          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"2rem",position:"relative",zIndex:1}}>
+            {palette.themes.map(t=>(
+              <span key={t} onClick={()=>onGoTheme&&onGoTheme(t)}
+                style={{background:c1,color:isDark(c1)?textCol:"#000",
+                  padding:"0.35rem 0.9rem",fontWeight:800,fontSize:"0.75rem",
+                  letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",
+                  border:`2px solid ${isDark(c0)?"#ffffff40":"#00000030"}`}}>
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* FULL-WIDTH COLOR BLOCKS — each color gets a big panel */}
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${colors.length},1fr)`,position:"relative",zIndex:1}}>
+          {colors.map((c,i)=>{
+            const dk=isDark(c.hex), tc=dk?"#fff":"#000";
+            const rgb=`${c.rgb.r}, ${c.rgb.g}, ${c.rgb.b}`;
+            return (
+              <div key={i}
+                onClick={()=>copy(c.hex,"HEX")}
+                style={{
+                  background:c.hex,minHeight:220,padding:"1.25rem 1rem",
+                  display:"flex",flexDirection:"column",justifyContent:"space-between",
+                  cursor:"pointer",position:"relative",overflow:"hidden",
+                  borderRight:i<colors.length-1?`2px solid ${c0}`:"none",
+                  transition:"min-height .2s"
+                }}
+                onMouseEnter={e=>e.currentTarget.style.minHeight="280px"}
+                onMouseLeave={e=>e.currentTarget.style.minHeight="220px"}>
+                {/* Big number */}
+                <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+                  fontWeight:900,fontSize:"clamp(2rem,5vw,3.5rem)",
+                  color:tc,opacity:0.15,lineHeight:1,userSelect:"none"}}>
+                  {String(i+1).padStart(2,"0")}
+                </div>
+                <div>
+                  <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+                    fontWeight:800,fontSize:"clamp(0.9rem,2vw,1.1rem)",
+                    color:tc,letterSpacing:"0.02em",marginBottom:"0.2rem",
+                    textTransform:"uppercase"}}>
+                    {copiedHex===c.hex ? "COPIED!" : c.hex.toUpperCase()}
+                  </div>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.7rem",
+                    color:tc,opacity:0.6,fontWeight:500}}>
+                    rgb({rgb})
+                  </div>
+                  <div style={{marginTop:"0.5rem",height:3,background:tc,opacity:0.3,width:"100%"}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Full-width color strip again */}
+        <div style={{display:"flex",height:6}}>
+          {colors.map((c,i)=><div key={i} style={{flex:1,background:c.hex}}/>)}
+        </div>
+      </div>
+
+      {/* ACTIONS ROW */}
+      <div style={{
+        position:"relative",zIndex:1,
+        background:c1,
+        padding:"1.25rem 1.5rem",
+        display:"flex",gap:"0.75rem",flexWrap:"wrap",alignItems:"center",
+        borderTop:`3px solid ${c0}`,borderBottom:`3px solid ${c0}`
+      }}>
+        {(()=>{
+          const liked=likedIds&&likedIds.includes(palette.id);
+          const tc2=isDark(c1)?"#fff":"#000";
+          return (<>
+            <button onClick={()=>likePalette(palette.id)}
+              style={{background:liked?c0:tc2,border:`3px solid ${c0}`,padding:"0.6rem 1.25rem",
+                color:liked?c1:c1,fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
+                cursor:"pointer",letterSpacing:"0.05em"}}>
+              {liked?"LIKED":"LIKE"} · {palette.likes||0}
+            </button>
+            <button onClick={()=>{ const all=colors.map(c=>c.hex).join("  "); navigator.clipboard&&navigator.clipboard.writeText(all); setToast("All hex codes copied!"); }}
+              style={{background:tc2,border:`3px solid ${tc2}`,padding:"0.6rem 1.25rem",
+                color:c1,fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
+                cursor:"pointer",letterSpacing:"0.05em"}}>
+              COPY ALL
+            </button>
+            <button onClick={()=>{ navigator.clipboard&&navigator.clipboard.writeText(window.location.href+"#"+palette.id); setToast("Link copied!"); }}
+              style={{background:"none",border:`3px solid ${tc2}`,padding:"0.6rem 1.25rem",
+                color:tc2,fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
+                cursor:"pointer",letterSpacing:"0.05em"}}>
+              SHARE
+            </button>
+            <button onClick={()=>saved?removeFromPalace(palette.id):addToPalace(palette)}
+              style={{background:saved?c0:"none",border:`3px solid ${c0}`,padding:"0.6rem 1.5rem",
+                color:saved?c1:c0,fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
+                marginLeft:"auto",cursor:"pointer",letterSpacing:"0.05em"}}>
+              {saved?"★ SAVED":"☆ SAVE TO PALACE"}
+            </button>
+          </>);
+        })()}
+      </div>
+
+      {/* SIMILAR PALETTES */}
+      {similar.length > 0 && (
+        <div style={{position:"relative",zIndex:1,background:"#ffffff",padding:"3rem 1.5rem 4rem"}}>
+          {/* Section header */}
+          <div style={{position:"relative",overflow:"hidden",marginBottom:"2rem",paddingBottom:"1.5rem",borderBottom:"1px solid #dddddd"}}>
+            <div style={{
+              position:"absolute",top:"-0.8rem",left:"-0.2rem",
+              fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+              fontSize:"clamp(4rem,10vw,7rem)",color:"transparent",lineHeight:0.85,
+              WebkitTextStroke:"1.5px rgba(255,255,255,0.04)",
+              userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em"
+            }}>SIMILAR</div>
+            <div style={{position:"relative",zIndex:1}}>
+              <div style={{fontSize:"0.5rem",fontWeight:800,letterSpacing:"0.2em",
+                textTransform:"uppercase",color:"#000000",marginBottom:"0.45rem",
+                fontFamily:"'DM Sans',sans-serif"}}>You might also like</div>
+              <div style={{
+                fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+                fontWeight:900,fontSize:"clamp(2rem,5vw,2.8rem)",
+                color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9
+              }}>
+                SIMILAR<br/>
+                <span style={{WebkitTextStroke:"2px rgba(0,0,0,0.08)",color:"transparent"}}>VIBES</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards — pixel-identical style to explore PaletteCards */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"1rem"}}>
+            {similar.map((p) => {
+              const bg   = p.colors[0].hex;
+              const acc  = p.colors[Math.min(1,p.colors.length-1)].hex;
+              const dk   = isDark(bg);
+              const tc   = dk ? "#fff" : "#000";
+              const pill = dk ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.12)";
+              const pbdr = dk ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.12)";
+              const mut  = dk ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.32)";
+              return (
+                <div key={p.id}
+                  onClick={()=>onNavigate(p)}
+                  style={{
+                    background:bg, overflow:"hidden", cursor:"pointer",
+                    border:"2px solid transparent", position:"relative",
+                    boxShadow:"0 3px 12px rgba(0,0,0,0.4)",
+                    transition:"all .2s cubic-bezier(.4,0,.2,1)"
+                  }}
+                  onMouseEnter={e=>{
+                    e.currentTarget.style.transform="translateY(-5px)";
+                    e.currentTarget.style.borderColor=acc;
+                    e.currentTarget.style.boxShadow=`0 18px 44px rgba(0,0,0,0.65), 0 0 0 1px ${acc}`;
+                  }}
+                  onMouseLeave={e=>{
+                    e.currentTarget.style.transform="";
+                    e.currentTarget.style.borderColor="transparent";
+                    e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,0.4)";
+                  }}>
+
+                  {/* Ghost outline name */}
+                  <div style={{
+                    position:"absolute",top:"0.2rem",left:"0.55rem",
+                    fontSize:"2.4rem",fontWeight:900,lineHeight:0.85,
+                    fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+                    color:"transparent",
+                    WebkitTextStroke:`1.5px ${dk?"rgba(0,0,0,0.16)":"rgba(0,0,0,0.1)"}`,
+                    userSelect:"none",whiteSpace:"nowrap",overflow:"hidden",
+                    pointerEvents:"none",zIndex:0,letterSpacing:"-0.04em",maxWidth:"100%"
+                  }}>{p.name.toUpperCase()}</div>
+
+                  {/* Expandable color blocks — same as PaletteCard */}
+                  <div style={{display:"flex",height:120,position:"relative",zIndex:2,marginTop:"2.6rem"}}>
+                    {p.colors.map((c,ci)=>(
+                      <div key={ci}
+                        style={{flex:1,background:c.hex,transition:"flex .28s cubic-bezier(.4,0,.2,1)",
+                          display:"flex",flexDirection:"column",justifyContent:"flex-end",
+                          padding:"0.35rem 0.3rem",overflow:"hidden"}}
+                        onMouseEnter={e=>e.currentTarget.style.flex="3"}
+                        onMouseLeave={e=>e.currentTarget.style.flex="1"}>
+                        <span style={{
+                          fontFamily:"'DM Sans',sans-serif",fontSize:"0.5rem",fontWeight:700,
+                          color:isDark(c.hex)?"rgba(0,0,0,0.55)":"rgba(0,0,0,0.55)",
+                          letterSpacing:"0.03em",whiteSpace:"nowrap",
+                          overflow:"hidden",textOverflow:"ellipsis"
+                        }}>{c.hex.toUpperCase()}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Info footer — same as PaletteCard */}
+                  <div style={{padding:"0.65rem 0.85rem 0.7rem",zIndex:2,
+                    background: dk?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.18)"}}>
+                    <div style={{
+                      fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                      fontSize:"0.88rem",color:tc,letterSpacing:"-0.025em",
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                      marginBottom:"0.28rem"
+                    }}>{p.name.toUpperCase()}</div>
+                    <div style={{display:"flex",gap:"0.18rem",flexWrap:"wrap"}}>
+                      {p.themes.slice(0,3).map(t=>(
+                        <span key={t} style={{
+                          fontFamily:"'DM Sans',sans-serif",fontSize:"0.5rem",fontWeight:700,
+                          background:pill,color:tc,padding:"0.08rem 0.38rem",
+                          letterSpacing:"0.06em",textTransform:"uppercase",border:`1px solid ${pbdr}`
+                        }}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+//  PALACE DRAWER — editorial style matching palette detail page
+function PalaceDrawer({open, onClose, onOpenPalette}) {
+  const {palace, removeFromPalace, tk} = useApp();
+  return (
+    <>
+      {open && (
+        <div onClick={onClose}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(2px)"}}/>
+      )}
+      <div style={{
+        position:"fixed",top:0,right:0,bottom:0,width:380,
+        background:"#ffffff",zIndex:201,
+        overflowY:"auto",
+        transform:open?"translateX(0)":"translateX(100%)",
+        transition:"transform .32s cubic-bezier(.4,0,.2,1)",
+        borderLeft:"2px solid #000000",
+        fontFamily:"'DM Sans',sans-serif"
+      }}>
+
+        {/* Header */}
+        <div style={{
+          padding:"1.4rem 1.4rem 1.2rem",
+          borderBottom:"2px solid #000000",
+          background:"#ffffff",
+          position:"sticky",top:0,zIndex:10
+        }}>
+          {/* Ghost text */}
+          <div style={{
+            position:"absolute",top:0,left:"0.5rem",
+            fontSize:"3.5rem",fontWeight:900,lineHeight:0.85,
+            fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+            color:"transparent",
+            WebkitTextStroke:"1.5px rgba(0,0,0,0.05)",
+            userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em"
+          }}>PALACE</div>
+
+          <div style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:"0.48rem",fontWeight:800,letterSpacing:"0.22em",
+                textTransform:"uppercase",color:"#000000",marginBottom:"0.3rem",
+                borderLeft:"2px solid #000000",paddingLeft:"0.5rem",fontFamily:"'DM Sans',sans-serif"}}>
+                Palette Palace
+              </div>
+              <div style={{
+                fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                fontSize:"1.8rem",color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9
+              }}>
+                {palace.length}&nbsp;<span style={{WebkitTextStroke:"1.5px rgba(0,0,0,0.18)",color:"transparent",fontSize:"1.6rem"}}>SAVED</span>
+              </div>
+            </div>
+            <Btn onClick={onClose}
+              style={{
+                background:"transparent",border:"2px solid #000000",
+                padding:"0.4rem 0.75rem",color:"#000000",
+                fontFamily:"'DM Sans',sans-serif",fontSize:"0.72rem",fontWeight:800,
+                letterSpacing:"0.08em",textTransform:"uppercase"
+              }}
+              hover={{background:"#000000",color:"#ffffff"}}>✕ CLOSE</Btn>
+          </div>
+        </div>
+
+        {palace.length === 0
+          ? (
+            <div style={{padding:"5rem 1.4rem",textAlign:"center"}}>
+              <div style={{
+                fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                fontSize:"3rem",color:"transparent",
+                WebkitTextStroke:"2px rgba(0,0,0,0.15)",letterSpacing:"-0.04em",
+                marginBottom:"1rem",lineHeight:1
+              }}>EMPTY</div>
+              <div style={{fontSize:"0.75rem",color:"rgba(0,0,0,0.18)",fontWeight:700,
+                letterSpacing:"0.1em",textTransform:"uppercase"}}>
+                Save palettes to fill your palace
+              </div>
+            </div>
+          )
+          : (
+            <div style={{padding:"1rem",display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+              {palace.map(p => {
+                const bg   = p.colors[0].hex;
+                const dark = isDark(bg);
+                const tc   = dark ? "#fff" : "#000";
+                const acc  = p.colors[Math.min(1,p.colors.length-1)].hex;
+                const pill = dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.12)";
+                const pbdr = dark ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.12)";
+                const mut  = dark ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.32)";
+                return (
+                  <div key={p.id}
+                    style={{
+                      background:bg, overflow:"hidden",
+                      border:"2px solid transparent",
+                      transition:"all .18s", cursor:"pointer", position:"relative"
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = acc;
+                      e.currentTarget.style.transform = "translateY(-3px)";
+                      e.currentTarget.style.boxShadow = `0 12px 36px rgba(0,0,0,0.6), 0 0 0 1px ${acc}`;
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = "transparent";
+                      e.currentTarget.style.transform = "";
+                      e.currentTarget.style.boxShadow = "";
+                    }}
+                    onClick={() => { onClose(); onOpenPalette(p); }}>
+
+                    {/* Ghost name */}
+                    <div style={{
+                      position:"absolute",top:"0.15rem",left:"0.45rem",
+                      fontSize:"1.9rem",fontWeight:900,lineHeight:0.85,
+                      fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+                      color:"transparent",
+                      WebkitTextStroke:`1.5px ${dark?"rgba(0,0,0,0.14)":"rgba(0,0,0,0.09)"}`,
+                      userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em",
+                      overflow:"hidden",whiteSpace:"nowrap",maxWidth:"100%"
+                    }}>{p.name.toUpperCase()}</div>
+
+                    {/* Expandable color blocks */}
+                    <div style={{display:"flex",height:70,marginTop:"1.9rem"}}>
+                      {p.colors.map((c,i) => (
+                        <div key={i} style={{flex:1,background:c.hex,transition:"flex .25s",
+                          display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0.25rem 0.2rem",overflow:"hidden"}}
+                          onMouseEnter={e=>e.currentTarget.style.flex="3"}
+                          onMouseLeave={e=>e.currentTarget.style.flex="1"}>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.44rem",fontWeight:700,
+                            color:isDark(c.hex)?"rgba(0,0,0,0.55)":"rgba(0,0,0,0.55)",
+                            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:"0.02em"
+                          }}>{c.hex.toUpperCase()}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{
+                      padding:"0.55rem 0.8rem",
+                      background: dark ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.08)",
+                      display:"flex",justifyContent:"space-between",alignItems:"center"
+                    }}>
+                      <div style={{minWidth:0}}>
+                        <div style={{
+                          fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:800,
+                          fontSize:"0.8rem",color:tc,letterSpacing:"-0.02em",
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"
+                        }}>{p.name.toUpperCase()}</div>
+                        <div style={{display:"flex",gap:"0.15rem",marginTop:"0.2rem",flexWrap:"wrap"}}>
+                          {p.themes.slice(0,2).map(t=>(
+                            <span key={t} style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.44rem",fontWeight:700,
+                              background:pill,color:tc,padding:"0.05rem 0.32rem",
+                              letterSpacing:"0.06em",textTransform:"uppercase",border:`1px solid ${pbdr}`
+                            }}>{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <Btn onClick={e => { e.stopPropagation(); removeFromPalace(p.id); }}
+                        style={{
+                          background: dark?"rgba(0,0,0,0.3)":"rgba(0,0,0,0.18)",
+                          border:`1.5px solid ${dark?"rgba(0,0,0,0.15)":"rgba(0,0,0,0.15)"}`,
+                          padding:"0.2rem 0.5rem",color:tc,
+                          fontFamily:"'DM Sans',sans-serif",fontSize:"0.58rem",fontWeight:800,
+                          letterSpacing:"0.06em",textTransform:"uppercase"
+                        }}
+                        hover={{background:"rgba(248,113,113,0.35)",borderColor:"#F87171",color:"#F87171"}}>
+                        ✕
+                      </Btn>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+      </div>
+    </>
+  );
+}
+
+//  SEARCH BAR — editorial style matching palette detail aesthetic
+function SearchBar({tk, inputQ, tags, onInputChange, onAddTag, onRemoveTag, onClearAll}) {
+  const [focused, setFocused] = useState(false);
+  const [show,    setShow]    = useState(false);
+  const inputRef  = useRef(null);
+  const wrapRef   = useRef(null);
+
+  const q = inputQ.toLowerCase().trim();
+  const themeSugs   = ALL_THEMES.filter(t => t.includes(q) && !tags.includes(t)).slice(0,6);
+  const colorSugs   = NAMED_COLORS.filter(c =>
+    (c.name.toLowerCase().includes(q) || c.hex.toLowerCase().includes(q)) && !tags.includes(c.hex)
+  ).slice(0,6);
+  const paletteSugs = PALETTES.filter(p =>
+    p.name.toLowerCase().includes(q) && q.length > 0 && !tags.includes(p.name.toLowerCase())
+  ).slice(0,4);
+  const quickThemes = q === "" ? ALL_THEMES.filter(t => !tags.includes(t)).slice(0,10) : [];
+  const hasAnySugs  = themeSugs.length > 0 || colorSugs.length > 0 || paletteSugs.length > 0 || quickThemes.length > 0;
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShow(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectTag = (val) => {
+    onAddTag(val);
+    setTimeout(() => { setShow(true); inputRef.current && inputRef.current.focus(); }, 50);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Backspace" && inputQ === "" && tags.length > 0) onRemoveTag(tags[tags.length - 1]);
+    if (e.key === "Enter" && inputQ.trim()) selectTag(inputQ.trim().toLowerCase());
+  };
+
+  return (
+    <div ref={wrapRef} style={{position:"relative", flex:1, maxWidth:540}}>
+      {/* Input box */}
+      <div
+        onClick={() => { setShow(true); inputRef.current && inputRef.current.focus(); }}
+        style={{
+          display:"flex", alignItems:"center", flexWrap:"wrap", gap:"0.3rem",
+          background:"#ffffff",
+          border:`2px solid ${focused ? "#000000" : "#aaaaaa"}`,
+          padding:"0.38rem 0.85rem",
+          boxShadow: focused ? "0 0 0 2px rgba(0,0,0,0.18)" : "none",
+          transition:"all .18s", cursor:"text", minHeight:"2.4rem"
+        }}>
+        <span style={{fontSize:"0.85rem", color:"#888888", flexShrink:0, marginRight:"0.2rem"}}>⌕</span>
+
+        {/* Tag chips — pure white/black */}
+        {tags.map(tag => (
+          <span key={tag} style={{
+            display:"inline-flex", alignItems:"center", gap:"0.2rem",
+            background:"#000000", color:"#ffffff",
+            padding:"0.12rem 0.5rem 0.12rem 0.6rem",
+            fontSize:"0.68rem", fontWeight:800,
+            flexShrink:0,
+            letterSpacing:"0.06em", textTransform:"uppercase",
+            fontFamily:"'DM Sans',sans-serif"
+          }}>
+            {tag}
+            <span onMouseDown={e => { e.stopPropagation(); e.preventDefault(); onRemoveTag(tag); }}
+              style={{cursor:"pointer", opacity:0.5, fontSize:"0.7rem", lineHeight:1, marginLeft:"0.1rem"}}>×</span>
+          </span>
+        ))}
+
+        <input
+          ref={inputRef}
+          value={inputQ}
+          onChange={e => { onInputChange(e.target.value); setShow(true); }}
+          onFocus={() => { setFocused(true); setShow(true); }}
+          onBlur={() => setFocused(false)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? "Search palettes, themes, colors…" : "Add tag…"}
+          style={{
+            flex:1, minWidth:100, background:"none", border:"none", outline:"none",
+            color:"#000000", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
+            fontWeight:500, padding:"0.1rem 0", letterSpacing:"0.02em"
+          }}
+        />
+        {(tags.length > 0 || inputQ) && (
+          <button onMouseDown={e => { e.preventDefault(); onClearAll(); setShow(false); }}
+            style={{background:"none", border:"none", color:"#888888", cursor:"pointer",
+              fontSize:"0.78rem", padding:0, flexShrink:0, fontWeight:800}}>✕</button>
+        )}
+      </div>
+
+      {/* Dropdown — pure black/white */}
+      {show && hasAnySugs && (
+        <div style={{
+          position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
+          background:"#ffffff", overflow:"hidden",
+          border:"2px solid #000000", boxShadow:"0 20px 60px rgba(0,0,0,0.95)",
+          zIndex:500, maxHeight:380, overflowY:"auto"
+        }}>
+          {quickThemes.length > 0 && (
+            <>
+              <div style={{padding:"0.5rem 0.9rem 0.2rem", fontSize:"0.5rem", fontWeight:800,
+                color:"#888888", textTransform:"uppercase", letterSpacing:"0.15em",
+                fontFamily:"'DM Sans',sans-serif",borderBottom:"1px solid #dddddd"}}>Browse Themes</div>
+              <div style={{display:"flex", flexWrap:"wrap", gap:"0.3rem", padding:"0.5rem 0.9rem 0.65rem"}}>
+                {quickThemes.map(t => (
+                  <span key={t} onMouseDown={e => { e.preventDefault(); selectTag(t); }}
+                    style={{
+                      background:"transparent", border:"1.5px solid #cccccc",
+                      padding:"0.2rem 0.6rem", color:"#999999",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:800,
+                      cursor:"pointer", transition:"all .12s", textTransform:"uppercase",
+                      letterSpacing:"0.05em"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor="#fff"; e.currentTarget.style.color="#fff"; e.currentTarget.style.background="#fff"; e.currentTarget.style.color="#000"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor="#333"; e.currentTarget.style.color="#999999"; e.currentTarget.style.background="transparent"; }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+          {themeSugs.length > 0 && (
+            <div style={{borderTop:quickThemes.length>0?"1px solid #eeeeee":"none"}}>
+              <div style={{padding:"0.4rem 0.9rem 0.15rem", fontSize:"0.5rem", fontWeight:800,
+                color:"#888888", textTransform:"uppercase", letterSpacing:"0.15em"}}>Themes</div>
+              {themeSugs.map(s => (
+                <div key={s} onMouseDown={e => { e.preventDefault(); selectTag(s); }}
+                  style={{padding:"0.48rem 0.9rem", color:"#000000", cursor:"pointer",
+                    fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif", fontWeight:700,
+                    display:"flex", alignItems:"center", gap:"0.5rem", letterSpacing:"0.06em",
+                    textTransform:"uppercase", transition:"background .1s"}}
+                  onMouseEnter={e => e.currentTarget.style.background="#f0f0f0"}
+                  onMouseLeave={e => e.currentTarget.style.background=""}>
+                  <span style={{color:"#000000", fontWeight:900, fontSize:"0.8rem",
+                    filter: "invert(0)"}}>+</span>
+                  <span style={{color: "inherit"}}>{s}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {colorSugs.length > 0 && (
+            <div style={{borderTop:"1px solid #eeeeee"}}>
+              <div style={{padding:"0.4rem 0.9rem 0.15rem", fontSize:"0.5rem", fontWeight:800,
+                color:"#888888", textTransform:"uppercase", letterSpacing:"0.15em"}}>Colors</div>
+              {colorSugs.map(c => (
+                <div key={c.hex} onMouseDown={e => { e.preventDefault(); selectTag(c.hex); }}
+                  style={{padding:"0.45rem 0.9rem", color:"#000000", cursor:"pointer",
+                    fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif",
+                    display:"flex", alignItems:"center", gap:"0.6rem", transition:"background .1s"}}
+                  onMouseEnter={e => { e.currentTarget.style.background="#f0f0f0"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background=""; }}>
+                  <div style={{width:20, height:20, background:c.hex, border:"1.5px solid #cccccc", flexShrink:0}}/>
+                  <span style={{fontWeight:700, letterSpacing:"0.03em"}}>{c.name}</span>
+                  <span style={{color:"#777777", fontSize:"0.65rem", marginLeft:"auto", fontWeight:800,
+                    letterSpacing:"0.06em"}}>{c.hex}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {paletteSugs.length > 0 && (
+            <div style={{borderTop:"1px solid #eeeeee"}}>
+              <div style={{padding:"0.4rem 0.9rem 0.15rem", fontSize:"0.5rem", fontWeight:800,
+                color:"#888888", textTransform:"uppercase", letterSpacing:"0.15em"}}>Palettes</div>
+              {paletteSugs.map(p => (
+                <div key={p.id} onMouseDown={e => { e.preventDefault(); selectTag(p.name.toLowerCase()); }}
+                  style={{padding:"0.45rem 0.9rem", color:"#000000", cursor:"pointer",
+                    fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif",
+                    display:"flex", alignItems:"center", gap:"0.6rem", fontWeight:700,
+                    letterSpacing:"0.04em", textTransform:"uppercase", transition:"background .1s"}}
+                  onMouseEnter={e => { e.currentTarget.style.background="#f0f0f0"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background=""; }}>
+                  <div style={{display:"flex", gap:2, flexShrink:0}}>
+                    {p.colors.slice(0,5).map((c,i) => (
+                      <div key={i} style={{width:16, height:24, background:c.hex}}/>
+                    ))}
+                  </div>
+                  {p.name.toUpperCase()}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+//  SIDEBAR SECTION LABEL — shared editorial style
+function SideLabel({children}) {
+  return (
+    <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.22em",textTransform:"uppercase",
+      color:"#000000",fontFamily:"'DM Sans',sans-serif",marginBottom:"0.55rem",
+      borderLeft:"2px solid #000000",paddingLeft:"0.5rem"}}>
+      {children}
+    </div>
+  );
+}
+
+//  COLOR MATCH PANEL 
+function ColorMatchPanel({tk, matchColors, onToggleColor, onClearColors}) {
+  const [activeTab,   setActiveTab]   = useState("swatches"); // "swatches" | "spectrum"
+  const [colorSearch, setColorSearch] = useState("");
+  const [showPopup,   setShowPopup]   = useState(false);
+
+  // Spectrum popup state
+  const [hue,  setHue]  = useState(200);   // 0-360
+  const [sat,  setSat]  = useState(80);    // 0-100 %
+  const [lit,  setLit]  = useState(50);    // 0-100 %
+  const [hexInput, setHexInput] = useState("");
+  const [rInput,   setRInput]   = useState("");
+  const [gInput,   setGInput]   = useState("");
+  const [bInput,   setBInput]   = useState("");
+
+  const specBarRef  = useRef(null);
+  const specBoxRef  = useRef(null);
+  const isDraggingBar = useRef(false);
+  const isDraggingBox = useRef(false);
+
+  //  colour math helpers 
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q-p)*6*t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+      return p;
+    };
+    if (s === 0) { const v = Math.round(l*255); return {r:v,g:v,b:v}; }
+    const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l - q;
+    return {
+      r: Math.round(hue2rgb(p,q,h/360+1/3)*255),
+      g: Math.round(hue2rgb(p,q,h/360)*255),
+      b: Math.round(hue2rgb(p,q,h/360-1/3)*255)};
+  }
+
+  function rgbToHex({r,g,b}) {
+    return "#" + [r,g,b].map(v => Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0")).join("");
+  }
+
+  function rgbToHsl(r,g,b) {
+    r/=255; g/=255; b/=255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b);
+    let h=0, s=0, l=(max+min)/2;
+    if (max!==min) {
+      const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+      if(max===r) h=((g-b)/d+(g<b?6:0))/6;
+      else if(max===g) h=((b-r)/d+2)/6;
+      else h=((r-g)/d+4)/6;
+    }
+    return {h:Math.round(h*360), s:Math.round(s*100), l:Math.round(l*100)};
+  }
+
+  // Sync inputs whenever hsl changes
+  const currentRgb = hslToRgb(hue, sat, lit);
+  const currentHex = rgbToHex(currentRgb);
+
+  // Update hex/rgb inputs when picker changes
+  useEffect(() => {
+    setHexInput(currentHex);
+    setRInput(String(currentRgb.r));
+    setGInput(String(currentRgb.g));
+    setBInput(String(currentRgb.b));
+  }, [hue, sat, lit]);
+
+  // Apply picked color as a match color
+  function applyColor() {
+    const rgb = hexToRgb(currentHex);
+    if (!rgb) return;
+    const color = {hex:currentHex, name:`Custom ${currentHex}`, rgb};
+    onToggleColor(color);
+    setShowPopup(false);
+    setActiveTab("swatches");
+  }
+
+  // Handle hex input
+  function handleHexInput(v) {
+    setHexInput(v);
+    const clean = v.replace(/[^0-9a-fA-F#]/g,"");
+    const hex = clean.startsWith("#") ? clean : "#"+clean;
+    if (hex.length === 7) {
+      const rgb = hexToRgb(hex);
+      if (rgb) { const h=rgbToHsl(rgb.r,rgb.g,rgb.b); setHue(h.h); setSat(h.s); setLit(h.l); }
+    }
+  }
+
+  // Handle RGB inputs
+  function handleRgbInput(ch, v) {
+    const n = parseInt(v) || 0;
+    const rgb = {...currentRgb, [ch]: Math.max(0,Math.min(255,n))};
+    if (ch==="r") setRInput(v); if (ch==="g") setGInput(v); if (ch==="b") setBInput(v);
+    const h = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    setHue(h.h); setSat(h.s); setLit(h.l);
+  }
+
+  // Drag on hue bar
+  function getHueFromEvent(e, el) {
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    return Math.round(x * 360);
+  }
+
+  // Drag on SL box
+  function getSLFromEvent(e, el) {
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    return { s: Math.round(x * 100), l: Math.round((1 - y) * 100) };
+  }
+
+  useEffect(() => {
+    const move = (e) => {
+      if (isDraggingBar.current && specBarRef.current) setHue(getHueFromEvent(e, specBarRef.current));
+      if (isDraggingBox.current && specBoxRef.current) { const {s,l}=getSLFromEvent(e, specBoxRef.current); setSat(s); setLit(l); }
+    };
+    const up = () => { isDraggingBar.current=false; isDraggingBox.current=false; };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+  }, []);
+
+  const filtered = colorSearch.trim()
+    ? NAMED_COLORS.filter(c =>
+        c.name.toLowerCase().includes(colorSearch.toLowerCase()) ||
+        c.hex.toLowerCase().includes(colorSearch.toLowerCase()))
+    : NAMED_COLORS;
+
+  return (
+    <div style={{position:"relative"}}>
+
+      {/*  TAB ROW  */}
+      <div style={{display:"flex",gap:0,marginBottom:"0.7rem",border:"1.5px solid #000000"}}>
+        {[["swatches","SWATCHES"],["spectrum","SPECTRUM"]].map(([id,label])=>(
+          <button key={id} onClick={()=>{setActiveTab(id);if(id==="spectrum")setShowPopup(true);}}
+            style={{
+              flex:1,fontFamily:"'DM Sans',sans-serif",fontSize:"0.62rem",fontWeight:800,
+              padding:"0.32rem 0.4rem",cursor:"pointer",letterSpacing:"0.1em",
+              border:"none",
+              borderRight: id==="swatches" ? "1.5px solid #000000" : "none",
+              background: activeTab===id ? "#ffffff" : "#000000",
+              color: activeTab===id ? "#000000" : "#ffffff",
+              transition:"all .15s"
+            }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/*  SWATCHES TAB  */}
+      {activeTab==="swatches" && (
+        <>
+          <div style={{position:"relative",marginBottom:"0.55rem"}}>
+            <input value={colorSearch} onChange={e=>setColorSearch(e.target.value)}
+              placeholder="Search colors…"
+              style={{width:"100%",background:"#000",border:"1.5px solid #000000",
+                padding:"0.32rem 1.6rem 0.32rem 0.6rem",
+                color:"#000000",fontFamily:"'DM Sans',sans-serif",fontSize:"0.7rem",fontWeight:600,
+                outline:"none",boxSizing:"border-box",letterSpacing:"0.03em"}}/>
+            {colorSearch && (
+              <button onClick={()=>setColorSearch("")}
+                style={{position:"absolute",right:"0.4rem",top:"50%",transform:"translateY(-50%)",
+                  background:"none",border:"none",color:"#000000",cursor:"pointer",fontSize:"0.72rem",fontWeight:800}}>✕</button>
+            )}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:"0.28rem",maxHeight:138,overflowY:"auto"}}>
+            {(colorSearch.trim()
+              ? NAMED_COLORS.filter(c=>c.name.toLowerCase().includes(colorSearch.toLowerCase())||c.hex.toLowerCase().includes(colorSearch.toLowerCase()))
+              : NAMED_COLORS
+            ).map(sc=>{
+              const isSel = matchColors.some(mc=>mc.hex===sc.hex);
+              return (
+                <div key={sc.hex} title={sc.name} onClick={()=>onToggleColor(sc)}
+                  style={{aspectRatio:"1",position:"relative",cursor:"pointer",
+                    outline: isSel ? "2.5px solid #fff" : "2px solid transparent",
+                    outlineOffset:"1px",transition:"all .15s",
+                    transform: isSel?"scale(0.88)":"scale(1)"}}>
+                  <div style={{position:"absolute",inset:0,background:sc.hex}}/>
+                  {isSel && (
+                    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
+                      justifyContent:"center",fontSize:"0.65rem",fontWeight:900,
+                      color:isDark(sc.hex)?"#fff":"#000"}}>✓</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/*  SPECTRUM POPUP  */}
+      {showPopup && createPortal(
+        <div style={{
+          position:"fixed",inset:0,zIndex:9000,
+          display:"flex",alignItems:"center",justifyContent:"center",
+          background:"rgba(0,0,0,0.92)"}}
+          onMouseDown={e=>{if(e.target===e.currentTarget){setShowPopup(false);setActiveTab("swatches");}}}>
+          <div style={{
+            background:"#ffffff",border:"2px solid #000000",
+            padding:"1.6rem",width:340,fontFamily:"'DM Sans',sans-serif",
+            position:"relative",overflow:"hidden"
+          }}>
+            {/* Ghost text */}
+            <div style={{position:"absolute",top:"-0.5rem",left:"-0.2rem",
+              fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,fontSize:"5rem",
+              color:"transparent",WebkitTextStroke:"1px rgba(0,0,0,0.05)",
+              userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em",lineHeight:0.85
+            }}>PICK</div>
+
+            {/* Header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.2rem",position:"relative",zIndex:1}}>
+              <div>
+                <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.22em",
+                  textTransform:"uppercase",color:"#000000",marginBottom:"0.3rem",
+                  borderLeft:"2px solid #000000",paddingLeft:"0.5rem"}}>Color Match</div>
+                <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                  fontSize:"1.5rem",color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9}}>
+                  PICK A<br/>
+                  <span style={{WebkitTextStroke:"1.5px rgba(0,0,0,0.3)",color:"transparent"}}>COLOR</span>
+                </div>
+              </div>
+              <button onClick={()=>{setShowPopup(false);setActiveTab("swatches");}}
+                style={{background:"transparent",border:"1.5px solid #000000",
+                  padding:"0.3rem 0.7rem",color:"#000000",cursor:"pointer",
+                  fontFamily:"'DM Sans',sans-serif",fontSize:"0.68rem",fontWeight:800,
+                  letterSpacing:"0.08em",textTransform:"uppercase",transition:"all .15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#000000";e.currentTarget.style.color="#ffffff";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#000000";}}>
+                ✕ CLOSE
+              </button>
+            </div>
+
+            {/* SL gradient box */}
+            <div ref={specBoxRef}
+              onMouseDown={e=>{isDraggingBox.current=true;const {s,l}=getSLFromEvent(e,specBoxRef.current);setSat(s);setLit(l);}}
+              style={{height:180,width:"100%",cursor:"crosshair",
+                background:`linear-gradient(to bottom,transparent 0%,#000 100%),linear-gradient(to right,#fff 0%,hsl(${hue},100%,50%) 100%)`,
+                position:"relative",marginBottom:"0.75rem",
+                border:"1.5px solid #cccccc",userSelect:"none"}}>
+              <div style={{position:"absolute",
+                left:`clamp(8px,calc(${sat}% - 0px),calc(100% - 8px))`,
+                top:`clamp(8px,${100-lit}%,calc(100% - 8px))`,
+                transform:"translate(-50%,-50%)",
+                width:16,height:16,
+                background:currentHex,border:"2.5px solid #fff",
+                boxShadow:"0 0 0 1px #000",pointerEvents:"none"}}/>
+            </div>
+
+            {/* Hue slider */}
+            <div ref={specBarRef}
+              onMouseDown={e=>{isDraggingBar.current=true;setHue(getHueFromEvent(e,specBarRef.current));}}
+              style={{height:14,width:"100%",cursor:"pointer",
+                background:"linear-gradient(to right,hsl(0,100%,50%),hsl(30,100%,50%),hsl(60,100%,50%),hsl(90,100%,50%),hsl(120,100%,50%),hsl(150,100%,50%),hsl(180,100%,50%),hsl(210,100%,50%),hsl(240,100%,50%),hsl(270,100%,50%),hsl(300,100%,50%),hsl(330,100%,50%),hsl(360,100%,50%))",
+                position:"relative",marginBottom:"0.85rem",border:"1.5px solid #cccccc",userSelect:"none"}}>
+              <div style={{position:"absolute",top:"50%",left:`${(hue/360)*100}%`,
+                transform:"translate(-50%,-50%)",width:20,height:20,
+                background:`hsl(${hue},100%,50%)`,border:"2.5px solid #fff",
+                boxShadow:"0 0 0 1px #000",pointerEvents:"none"}}/>
+            </div>
+
+            {/* Preview + inputs */}
+            <div style={{display:"flex",gap:"0.65rem",alignItems:"stretch",marginBottom:"1rem"}}>
+              <div style={{width:52,height:52,background:currentHex,flexShrink:0,
+                border:"1.5px solid #cccccc",boxShadow:`0 4px 16px ${currentHex}60`}}/>
+              <div style={{flex:1,display:"flex",flexDirection:"column",gap:"0.35rem"}}>
+                {/* HEX */}
+                <div style={{display:"flex",alignItems:"center",background:"#111",
+                  border:"1.5px solid #cccccc",padding:"0 0.55rem",overflow:"hidden"}}>
+                  <span style={{color:"#888888",fontSize:"0.6rem",fontWeight:800,letterSpacing:"0.06em",
+                    paddingRight:"0.4rem",borderRight:"1px solid #333",marginRight:"0.4rem"}}>HEX</span>
+                  <input value={hexInput} onChange={e=>handleHexInput(e.target.value)}
+                    style={{flex:1,background:"none",border:"none",outline:"none",color:"#000000",
+                      fontFamily:"'DM Sans',sans-serif",fontSize:"0.78rem",fontWeight:700,
+                      padding:"0.35rem 0",letterSpacing:"0.05em"}}/>
+                </div>
+                {/* RGB */}
+                <div style={{display:"flex",gap:"0.25rem"}}>
+                  {[["r","R",rInput],["g","G",gInput],["b","B",bInput]].map(([ch,lbl,val])=>(
+                    <div key={ch} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                      background:"#f5f5f5",border:"1.5px solid #cccccc",padding:"0.22rem 0.15rem"}}>
+                      <span style={{color:"#888888",fontSize:"0.48rem",fontWeight:800,letterSpacing:"0.08em",marginBottom:"0.08rem"}}>{lbl}</span>
+                      <input value={val} onChange={e=>handleRgbInput(ch,e.target.value)}
+                        type="text" inputMode="numeric" maxLength={3}
+                        style={{width:"100%",background:"none",border:"none",outline:"none",
+                          color:"#000000",fontFamily:"'DM Sans',sans-serif",fontSize:"0.72rem",
+                          fontWeight:700,textAlign:"center",padding:0}}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Apply button */}
+            <button onClick={applyColor}
+              style={{width:"100%",border:"none",padding:"0.75rem",
+                background:currentHex,
+                color:isDark(currentHex)?"#fff":"#000",
+                fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
+                cursor:"pointer",letterSpacing:"0.06em",textTransform:"uppercase",
+                boxShadow:`0 4px 20px ${currentHex}80`}}>
+              MATCH · {currentHex.toUpperCase()}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/*  SELECTED COLOR CHIPS  */}
+      {matchColors.length > 0 && (
+        <div style={{marginTop:"0.55rem",display:"flex",flexWrap:"wrap",gap:"0.25rem",alignItems:"center"}}>
+          {matchColors.map(mc=>(
+            <div key={mc.hex} onClick={()=>onToggleColor(mc)}
+              style={{display:"flex",alignItems:"center",gap:"0.22rem",
+                background:"#000",border:"1.5px solid #000000",
+                padding:"0.12rem 0.38rem 0.12rem 0.18rem",cursor:"pointer",transition:"all .15s"}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="#F87171"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="#000000"}>
+              <div style={{width:10,height:10,background:mc.hex,border:"1px solid #cccccc",flexShrink:0}}/>
+              <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.58rem",color:"#000000",fontWeight:700,letterSpacing:"0.04em"}}>{mc.hex.toUpperCase()}</span>
+              <span style={{color:"#888888",fontSize:"0.55rem",fontWeight:800}}>✕</span>
+            </div>
+          ))}
+          <button onClick={onClearColors}
+            style={{background:"none",border:"none",color:"#888888",cursor:"pointer",
+              fontFamily:"'DM Sans',sans-serif",fontSize:"0.6rem",fontWeight:800,
+              letterSpacing:"0.06em",textTransform:"uppercase",padding:"0.1rem 0",transition:"color .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.color="#F87171"}
+            onMouseLeave={e=>e.currentTarget.style.color="#888888"}>
+            CLEAR ALL
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+//  MINI COLOR PICKER (used inside Create Palette) 
+function MiniColorPicker({value, onChange, tk}) {
+  const [open,    setOpen]    = useState(false);
+  const [hue,     setHue]     = useState(0);
+  const [sat,     setSat]     = useState(80);
+  const [lit,     setLit]     = useState(50);
+  const [hexInput,setHexInput]= useState(value);
+  const [popupPos,setPopupPos]= useState({left:0, top:0}); // captured on open
+  const boxRef      = useRef(null);
+  const barRef      = useRef(null);
+  const wrapRef     = useRef(null);
+  const popupRef    = useRef(null);
+  const draggingBox = useRef(false);
+  const draggingBar = useRef(false);
+
+  function hsl2rgb(h,s,l) {
+    s/=100; l/=100;
+    const f=(n,k=(n+h/30)%12)=>l-s*Math.min(l,1-l)*Math.max(Math.min(k-3,9-k,1),-1);
+    return {r:Math.round(f(0)*255),g:Math.round(f(8)*255),b:Math.round(f(4)*255)};
+  }
+  function rgb2hex({r,g,b}) { return "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0")).join(""); }
+  function hex2hsl(hex) {
+    const rgb=hexToRgb(hex); if(!rgb) return {h:0,s:80,l:50};
+    let r=rgb.r/255,g=rgb.g/255,b=rgb.b/255;
+    const max=Math.max(r,g,b),min=Math.min(r,g,b);
+    let h=0,s=0,l=(max+min)/2;
+    if(max!==min){const d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);if(max===r)h=((g-b)/d+(g<b?6:0))/6;else if(max===g)h=((b-r)/d+2)/6;else h=((r-g)/d+4)/6;}
+    return {h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};
+  }
+
+  useEffect(() => {
+    const hsl=hex2hsl(value); setHue(hsl.h); setSat(hsl.s); setLit(hsl.l); setHexInput(value);
+  }, [value]);
+
+  const currentRgb = hsl2rgb(hue,sat,lit);
+  const currentHex = rgb2hex(currentRgb);
+  const pureHue    = `hsl(${hue},100%,50%)`;
+
+  useEffect(() => { if(open) onChange(currentHex); }, [hue,sat,lit]);
+
+  function getBox(e,el){ const r=el.getBoundingClientRect(); return {s:Math.round(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*100),l:Math.round((1-Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)))*100)}; }
+  function getBar(e,el){ const r=el.getBoundingClientRect(); return Math.round(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*360); }
+
+  useEffect(()=>{
+    const move=(e)=>{
+      if(draggingBox.current&&boxRef.current){const{s,l}=getBox(e,boxRef.current);setSat(s);setLit(l);}
+      if(draggingBar.current&&barRef.current) setHue(getBar(e,barRef.current));
+    };
+    const up=()=>{draggingBox.current=false;draggingBar.current=false;};
+    window.addEventListener("mousemove",move);
+    window.addEventListener("mouseup",up);
+    return()=>{window.removeEventListener("mousemove",move);window.removeEventListener("mouseup",up);};
+  },[]);
+
+  // Close on outside click — check both the trigger wrapper AND the portaled popup
+  useEffect(()=>{
+    if(!open) return;
+    const handler=(e)=>{
+      const inWrap   = wrapRef.current && wrapRef.current.contains(e.target);
+      const inPopup  = popupRef.current && popupRef.current.contains(e.target);
+      if(!inWrap && !inPopup) setOpen(false);
+    };
+    // Use timeout so the open-click itself doesn't immediately close
+    const id = setTimeout(()=>document.addEventListener("mousedown",handler), 0);
+    return()=>{ clearTimeout(id); document.removeEventListener("mousedown",handler); };
+  },[open]);
+
+  function openPicker() {
+    if(!wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const left = Math.min(rect.left, window.innerWidth - 272);
+    const top  = Math.min(rect.bottom + 8, window.innerHeight - 300);
+    setPopupPos({left, top});
+    setOpen(o=>!o);
+  }
+
+  function handleHexInput(v){
+    setHexInput(v);
+    const clean=v.startsWith("#")?v:"#"+v;
+    if(clean.length===7){const hsl=hex2hsl(clean);setHue(hsl.h);setSat(hsl.s);setLit(hsl.l);onChange(clean);}
+  }
+
+  return (
+    <div ref={wrapRef} style={{position:"relative",display:"inline-block"}}>
+      {/* Swatch trigger */}
+      <div onClick={openPicker}
+        style={{width:42,height:42,background:value,cursor:"pointer",
+          border:"2px solid #000000",
+          transition:"transform .15s",flexShrink:0}}
+        onMouseEnter={e=>e.currentTarget.style.transform="scale(1.08)"}
+        onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}
+      />
+
+      {open && createPortal(
+        <div ref={popupRef} style={{
+          position:"fixed", left:popupPos.left, top:popupPos.top,
+          zIndex:9500, width:260,
+          background:"#ffffff",border:"2px solid #000000",
+          padding:"1rem",fontFamily:"'DM Sans',sans-serif"
+        }}>
+          {/* SL box */}
+          <div ref={boxRef}
+            onMouseDown={e=>{e.preventDefault();draggingBox.current=true;const{s,l}=getBox(e,boxRef.current);setSat(s);setLit(l);}}
+            style={{height:145,width:"100%",cursor:"crosshair",
+              background:`linear-gradient(to bottom,transparent 0%,#000 100%),linear-gradient(to right,#fff 0%,${pureHue} 100%)`,
+              position:"relative",marginBottom:"0.6rem",
+              border:"1.5px solid #cccccc",userSelect:"none"}}>
+            <div style={{position:"absolute",left:`${sat}%`,top:`${100-lit}%`,
+              transform:"translate(-50%,-50%)",width:13,height:13,
+              background:currentHex,border:"2px solid #000000",
+              boxShadow:"0 0 0 1px #000",pointerEvents:"none"}}/>
+          </div>
+
+          {/* Hue bar */}
+          <div ref={barRef}
+            onMouseDown={e=>{e.preventDefault();draggingBar.current=true;setHue(getBar(e,barRef.current));}}
+            style={{height:12,width:"100%",cursor:"pointer",
+              background:"linear-gradient(to right,hsl(0,100%,50%),hsl(60,100%,50%),hsl(120,100%,50%),hsl(180,100%,50%),hsl(240,100%,50%),hsl(300,100%,50%),hsl(360,100%,50%))",
+              position:"relative",marginBottom:"0.7rem",
+              border:"1.5px solid #cccccc",userSelect:"none"}}>
+            <div style={{position:"absolute",top:"50%",left:`${(hue/360)*100}%`,
+              transform:"translate(-50%,-50%)",width:16,height:16,
+              background:`hsl(${hue},100%,50%)`,border:"2px solid #000000",
+              boxShadow:"0 0 0 1px #000",pointerEvents:"none"}}/>
+          </div>
+
+          {/* Preview + hex input */}
+          <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
+            <div style={{width:34,height:34,background:currentHex,flexShrink:0,
+              border:"1.5px solid #cccccc",boxShadow:`0 4px 12px ${currentHex}80`}}/>
+            <div style={{flex:1,display:"flex",alignItems:"center",
+              background:"#f5f5f5",border:"1.5px solid #cccccc",padding:"0 0.5rem",overflow:"hidden"}}>
+              <span style={{color:"#888888",fontSize:"0.58rem",fontWeight:800,
+                paddingRight:"0.35rem",borderRight:"1px solid #333",
+                marginRight:"0.35rem",letterSpacing:"0.04em"}}>#</span>
+              <input value={hexInput.replace("#","")} onChange={e=>handleHexInput("#"+e.target.value)}
+                maxLength={6}
+                style={{flex:1,background:"none",border:"none",outline:"none",color:"#000000",
+                  fontFamily:"'DM Sans',sans-serif",fontSize:"0.76rem",fontWeight:700,
+                  padding:"0.38rem 0",letterSpacing:"0.06em"}}/>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+//  CREATE + GENERATOR WIDGET (merged) 
+function CreateWidget({tk, onCreated}) {
+  const {createPalette} = useApp();
+  const [show,      setShow]      = useState(false);
+  const [tab,       setTab]       = useState("create"); // "create" | "generate"
+  const [name,      setName]      = useState("");
+  const [colors,    setColors]    = useState(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+
+  // Generator state
+  const [genColors, setGenColors] = useState(() => Array.from({length:4}, randHex));
+  const [locked,    setLocked]    = useState([false,false,false,false]);
+  const lockedRef = useRef(locked);
+  useEffect(() => { lockedRef.current = locked; }, [locked]);
+
+  const generate   = () => setGenColors(prev => prev.map((c,i) => lockedRef.current[i] ? c : randHex()));
+  const toggleLock = (i) => setLocked(prev => prev.map((v,j) => j===i ? !v : v));
+  const copyGen    = () => navigator.clipboard && navigator.clipboard.writeText(genColors.join("  "));
+  const useGenColors = () => { setColors(genColors.map(c=>c)); setTab("create"); };
+
+  const randomize   = () => setColors(colors.map(() => randHex()));
+  const updateColor = (i, hex) => setColors(prev => prev.map((v,j) => j===i ? hex : v));
+  const addSlot     = () => { if (colors.length < 7) setColors(prev => [...prev, randHex()]); };
+  const removeSlot  = (i) => { if (colors.length > 2) setColors(prev => prev.filter((_,j) => j !== i)); };
+  const submit = () => {
+    const p = createPalette(colors, name || "My Palette");
+    setShow(false); setName("");
+    setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+    onCreated && onCreated(p);
+  };
+
+  const BW = {
+    btn: {background:"transparent",border:"1.5px solid #000000",padding:"0.55rem 0.8rem",
+      color:"#000000",fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.7rem",
+      letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",transition:"all .15s"},
+    btnFill: {background:"#000000",border:"none",padding:"0.55rem 0.8rem",color:"#ffffff",
+      fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.7rem",
+      letterSpacing:"0.08em",textTransform:"uppercase",cursor:"pointer",transition:"all .15s"},
+  };
+
+  return (
+    <>
+      <button onClick={() => setShow(true)}
+        style={{width:"100%",background:"#000000",border:"none",padding:"0.55rem",
+          color:"#ffffff",fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.72rem",
+          letterSpacing:"0.1em",textTransform:"uppercase",cursor:"pointer",transition:"all .15s"}}
+        onMouseEnter={e => e.currentTarget.style.background="#333333"}
+        onMouseLeave={e => e.currentTarget.style.background="#000000"}>
+        + CREATE PALETTE
+      </button>
+
+      {show && createPortal(
+        <div style={{position:"fixed",inset:0,zIndex:9000,display:"flex",alignItems:"center",
+          justifyContent:"center",background:"rgba(0,0,0,0.88)"}}
+          onMouseDown={e => { if (e.target === e.currentTarget) setShow(false); }}>
+
+          <div style={{
+            background:"#ffffff", border:"2px solid #000000",
+            width:420, maxHeight:"92vh", overflowY:"auto",
+            fontFamily:"'DM Sans',sans-serif", position:"relative"
+          }}>
+
+            {/* Ghost text */}
+            <div style={{position:"absolute",top:"-0.5rem",left:"-0.2rem",
+              fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,fontSize:"5rem",
+              color:"transparent",WebkitTextStroke:"1px rgba(0,0,0,0.04)",
+              userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em",lineHeight:0.85
+            }}>{tab === "generate" ? "GEN" : "CREATE"}</div>
+
+            {/* Header */}
+            <div style={{padding:"1.5rem 1.5rem 0",position:"relative",zIndex:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.2rem"}}>
+                <div>
+                  <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.22em",
+                    textTransform:"uppercase",color:"#000000",marginBottom:"0.3rem",
+                    borderLeft:"2px solid #000000",paddingLeft:"0.5rem"}}>
+                    {tab === "generate" ? "Random Generator" : "New Palette"}
+                  </div>
+                  <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                    fontSize:"1.5rem",color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9}}>
+                    {tab === "generate" ? <>GENERATE<br/><span style={{WebkitTextStroke:"1.5px rgba(0,0,0,0.25)",color:"transparent"}}>PALETTE</span></> : <>CREATE<br/><span style={{WebkitTextStroke:"1.5px rgba(0,0,0,0.25)",color:"transparent"}}>YOURS</span></>}
+                  </div>
+                </div>
+                <button onClick={() => setShow(false)}
+                  style={{background:"transparent",border:"1.5px solid #000000",padding:"0.3rem 0.7rem",
+                    color:"#000000",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",
+                    fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",transition:"all .15s"}}
+                  onMouseEnter={e => { e.currentTarget.style.background="#000000"; e.currentTarget.style.color="#ffffff"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#000000"; }}>
+                  ✕ CLOSE
+                </button>
+              </div>
+
+              {/* Tab switcher */}
+              <div style={{display:"flex",gap:0,marginBottom:"1.3rem",border:"2px solid #000000"}}>
+                {[["create","CREATE"],["generate","GENERATE"]].map(([id,label]) => (
+                  <button key={id} onClick={() => setTab(id)}
+                    style={{
+                      flex:1, fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:800,
+                      padding:"0.4rem", cursor:"pointer", letterSpacing:"0.1em",
+                      border:"none", borderRight: id==="create" ? "2px solid #000000" : "none",
+                      background: tab===id ? "#000000" : "#ffffff",
+                      color: tab===id ? "#ffffff" : "#000000",
+                      transition:"all .15s"
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── CREATE TAB ── */}
+            {tab === "create" && (
+              <div style={{padding:"0 1.5rem 1.5rem", position:"relative", zIndex:1}}>
+                {/* Live preview */}
+                <div style={{display:"flex",height:56,marginBottom:"1.1rem",border:"1.5px solid #000000"}}>
+                  {colors.map((c,i) => (
+                    <div key={i} style={{flex:1,background:c,transition:"background .2s",
+                      borderRight:i<colors.length-1?"1px solid rgba(0,0,0,0.15)":""}}/>
+                  ))}
+                </div>
+
+                {/* Name */}
+                <div style={{marginBottom:"1rem"}}>
+                  <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.2em",textTransform:"uppercase",
+                    color:"#000000",marginBottom:"0.4rem",borderLeft:"2px solid #000000",paddingLeft:"0.5rem",
+                    fontFamily:"'DM Sans',sans-serif"}}>Palette Name</div>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Midnight Ocean…"
+                    style={{width:"100%",background:"#f5f5f5",border:"1.5px solid #cccccc",
+                      padding:"0.5rem 0.85rem",color:"#000000",
+                      fontFamily:"'DM Sans',sans-serif",fontSize:"0.84rem",fontWeight:600,outline:"none",
+                      boxSizing:"border-box",transition:"border-color .15s",letterSpacing:"0.02em"}}
+                    onFocus={e => e.target.style.borderColor="#000000"}
+                    onBlur={e => e.target.style.borderColor="#cccccc"}/>
+                </div>
+
+                {/* Color slots */}
+                <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.2em",textTransform:"uppercase",
+                  color:"#000000",marginBottom:"0.5rem",borderLeft:"2px solid #000000",paddingLeft:"0.5rem",
+                  fontFamily:"'DM Sans',sans-serif"}}>Colors</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.35rem",marginBottom:"0.8rem"}}>
+                  {colors.map((c,i) => (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.65rem",
+                      background:"#f5f5f5",border:"1.5px solid #cccccc",padding:"0.5rem 0.75rem",
+                      transition:"border-color .15s"}}
+                      onMouseEnter={e => e.currentTarget.style.borderColor="#000000"}
+                      onMouseLeave={e => e.currentTarget.style.borderColor="#cccccc"}>
+                      <MiniColorPicker value={c} onChange={hex => updateColor(i, hex)} tk={tk}/>
+                      <div style={{flex:1}}>
+                        <div style={{color:"#000000",fontFamily:"'DM Sans',sans-serif",fontSize:"0.78rem",
+                          fontWeight:700,letterSpacing:"0.04em"}}>{c.toUpperCase()}</div>
+                        <div style={{color:"#888888",fontSize:"0.58rem",marginTop:"0.06rem",fontWeight:600}}>
+                          {(()=>{const rgb=hexToRgb(c);return rgb?`rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`:"";})()}
+                        </div>
+                      </div>
+                      {colors.length > 2 && (
+                        <button onClick={() => removeSlot(i)}
+                          style={{background:"none",border:"none",color:"#aaaaaa",cursor:"pointer",
+                            fontSize:"0.85rem",padding:"0.15rem",lineHeight:1,transition:"color .15s",fontWeight:800}}
+                          onMouseEnter={e => e.currentTarget.style.color="#cc0000"}
+                          onMouseLeave={e => e.currentTarget.style.color="#aaaaaa"}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {colors.length < 7 && (
+                  <button onClick={addSlot}
+                    style={{width:"100%",background:"transparent",border:"1.5px dashed #aaaaaa",
+                      padding:"0.45rem",color:"#888888",fontFamily:"'DM Sans',sans-serif",
+                      fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",
+                      cursor:"pointer",marginBottom:"0.8rem",transition:"all .15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#000000";e.currentTarget.style.color="#000000";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#aaaaaa";e.currentTarget.style.color="#888888";}}>
+                    + ADD COLOR
+                  </button>
+                )}
+
+                <div style={{display:"flex",gap:"0.5rem"}}>
+                  <button onClick={randomize}
+                    style={{...BW.btn, flex:1}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#000000";e.currentTarget.style.color="#ffffff";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#000000";}}>
+                    ↺ RANDOM
+                  </button>
+                  <button onClick={submit}
+                    style={{...BW.btnFill, flex:2}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#333333"}
+                    onMouseLeave={e=>e.currentTarget.style.background="#000000"}>
+                    ✓ SUBMIT
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── GENERATE TAB ── */}
+            {tab === "generate" && (
+              <div style={{padding:"0 1.5rem 1.5rem", position:"relative", zIndex:1}}>
+
+                {/* Big live preview — click to generate */}
+                <div style={{display:"flex",height:80,marginBottom:"0.9rem",cursor:"pointer",
+                  border:"1.5px solid #000000",transition:"opacity .15s"}}
+                  onClick={generate}
+                  onMouseEnter={e=>e.currentTarget.style.opacity="0.85"}
+                  onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                  {genColors.map((c,i) => (
+                    <div key={i} style={{flex:1,background:c,transition:"background .22s",
+                      borderRight:i<genColors.length-1?"1px solid rgba(0,0,0,0.1)":""}}/>
+                  ))}
+                </div>
+                <div style={{fontSize:"0.5rem",fontWeight:700,color:"#aaaaaa",letterSpacing:"0.08em",
+                  textTransform:"uppercase",textAlign:"center",marginBottom:"0.9rem",
+                  fontFamily:"'DM Sans',sans-serif"}}>↑ Click to regenerate</div>
+
+                {/* Color rows with lock */}
+                <div style={{display:"flex",flexDirection:"column",gap:"0.28rem",marginBottom:"1rem"}}>
+                  {genColors.map((c,i) => (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",
+                      background: locked[i] ? "#000000" : "#f5f5f5",
+                      border:`1.5px solid ${locked[i]?"#000000":"#cccccc"}`,
+                      padding:"0.3rem 0.55rem",transition:"all .15s"}}>
+                      <div style={{width:18,height:18,background:c,flexShrink:0,
+                        border:`1px solid ${locked[i]?"rgba(255,255,255,0.25)":"#cccccc"}`}}/>
+                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.68rem",
+                        color: locked[i]?"#ffffff":"#000000",flex:1,fontWeight:700,letterSpacing:"0.05em"}}>
+                        {c.toUpperCase()}
+                      </span>
+                      <button onClick={() => toggleLock(i)}
+                        style={{
+                          background: locked[i] ? "rgba(255,255,255,0.15)" : "transparent",
+                          border:`1px solid ${locked[i]?"rgba(255,255,255,0.3)":"#cccccc"}`,
+                          padding:"0.12rem 0.45rem",cursor:"pointer",
+                          color: locked[i]?"#ffffff":"#888888",
+                          fontSize:"0.55rem",fontFamily:"'DM Sans',sans-serif",fontWeight:800,
+                          letterSpacing:"0.08em",textTransform:"uppercase",transition:"all .15s"
+                        }}
+                        onMouseEnter={e=>{if(!locked[i]){e.currentTarget.style.borderColor="#000000";e.currentTarget.style.color="#000000";}}}
+                        onMouseLeave={e=>{if(!locked[i]){e.currentTarget.style.borderColor="#cccccc";e.currentTarget.style.color="#888888";}}}>
+                        {locked[i] ? "🔒 LOCKED" : "LOCK"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{display:"flex",gap:"0.5rem"}}>
+                  <button onClick={generate}
+                    style={{...BW.btn, flex:1}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#000000";e.currentTarget.style.color="#ffffff";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#000000";}}>
+                    ↺ GENERATE
+                  </button>
+                  <button onClick={copyGen}
+                    style={{...BW.btn, flex:1}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#000000";e.currentTarget.style.color="#ffffff";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#000000";}}>
+                    COPY HEX
+                  </button>
+                  <button onClick={useGenColors}
+                    style={{...BW.btnFill, flex:1}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#333333"}
+                    onMouseLeave={e=>e.currentTarget.style.background="#000000"}>
+                    USE →
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+//  SPOTLIGHT SECTION — single palette, slides left/right 
+function SpotlightSection({palettes, activeIdx, onSelect, onNavigate, onDotClick, tk}) {
+  const DURATION = 500; // ms for slide animation
+  const [displayed, setDisplayed] = useState(activeIdx);
+  const [animating, setAnimating] = useState(false);
+  const [direction, setDirection] = useState("left"); // "left"=forward, "right"=backward
+  const [phase, setPhase]         = useState("idle"); // "idle" | "exit" | "enter"
+  const prevIdxRef = useRef(activeIdx);
+  const timerRef   = useRef(null);
+
+  useEffect(() => {
+    if (activeIdx === prevIdxRef.current) return;
+    const dir = activeIdx > prevIdxRef.current ? "left" : "right";
+    prevIdxRef.current = activeIdx;
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    setDirection(dir);
+    setPhase("exit");
+    setAnimating(true);
+
+    timerRef.current = setTimeout(() => {
+      setDisplayed(activeIdx);
+      setPhase("enter");
+      timerRef.current = setTimeout(() => {
+        setPhase("idle");
+        setAnimating(false);
+        timerRef.current = null;
+      }, DURATION);
+    }, DURATION);
+
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [activeIdx]);
+
+  const p = palettes[displayed];
+  if (!p) return (
+    <div style={{
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      minHeight:320, padding:"2rem",
+      borderBottom:"1px solid #dddddd"
+    }}>
+      <span style={{fontSize:"2.5rem", marginBottom:"0.75rem"}}></span>
+      <div style={{fontFamily:"'DM Sans',sans-serif", color:"rgba(0,0,0,0.22)", fontSize:"0.88rem", textAlign:"center"}}>
+        Your Palace is empty.<br/>Save some palettes to see them here!
+      </div>
+    </div>
+  );
+
+  // Slide transform values
+  const slideStyle = (() => {
+    if (phase === "exit") {
+      return { transform: direction === "left" ? "translateX(-100%)" : "translateX(100%)", opacity:0 };
+    }
+    if (phase === "enter") {
+      return { transform: "translateX(0)", opacity:1 };
+    }
+    return { transform: "translateX(0)", opacity:1 };
+  })();
+
+  const initialStyle = (() => {
+    if (phase === "enter") {
+      return { transform: direction === "left" ? "translateX(100%)" : "translateX(-100%)" };
+    }
+    return {};
+  })();
+
+  return (
+    <div style={{
+      position:"relative", zIndex:1, overflow:"hidden",
+      borderBottom:"1px solid #dddddd"
+    }}>
+      {/* Top bar: label + dots + arrows */}
+      <div style={{
+        position:"absolute", top:"1.1rem", left:"1.4rem", right:"1.4rem",
+        display:"flex", alignItems:"center", gap:"0.6rem", zIndex:20, pointerEvents:"none"
+      }}>
+        <span style={{
+          fontFamily:"'DM Sans',sans-serif", fontWeight:800, fontSize:"0.58rem",
+          letterSpacing:"0.18em", textTransform:"uppercase", color:"rgba(0,0,0,0.3)"
+        }}>★ Palette Palace</span>
+
+        {/* Dot indicators */}
+        {palettes.length > 1 && (
+          <div style={{display:"flex", gap:"0.35rem", marginLeft:"0.2rem", pointerEvents:"all"}}>
+            {palettes.map((_,i) => (
+              <div key={i} onClick={() => !animating && onDotClick(i)}
+                style={{
+                  width: i === activeIdx ? 20 : 6, height:6, borderRadius:"0",
+                  background: i === activeIdx ? "#fff" : "#444",
+                  cursor: animating ? "default" : "pointer",
+                  transition:"width 0.45s cubic-bezier(0.4,0,0.2,1), background 0.45s"
+                }}/>
+            ))}
+          </div>
+        )}
+
+        {/* Palette counter */}
+        <span style={{
+          fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem",
+          color:"rgba(0,0,0,0.18)", marginLeft:"0.25rem"
+        }}>{activeIdx + 1} / {palettes.length}</span>
+
+        {/* Prev / Next arrows */}
+        {palettes.length > 1 && (
+          <div style={{display:"flex", gap:"0.45rem", marginLeft:"auto", pointerEvents:"all"}}>
+            {[
+              { label:"‹", idx:(activeIdx - 1 + palettes.length) % palettes.length },
+              { label:"›", idx:(activeIdx + 1) % palettes.length }
+            ].map(({label, idx}) => (
+              <button key={label}
+                onClick={() => !animating && onDotClick(idx)}
+                disabled={animating}
+                style={{
+                  background:"transparent", border:"1.5px solid #444",
+                  width:30, height:30, color:"#000000",
+                  fontFamily:"'DM Sans',sans-serif", fontWeight:700, fontSize:"1.1rem",
+                  cursor: animating ? "default" : "pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s", lineHeight:1
+                }}
+                onMouseEnter={e => { if (!animating) { e.currentTarget.style.background="#fff"; e.currentTarget.style.color="#000"; e.currentTarget.style.borderColor="#fff"; }}}
+                onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#000000"; e.currentTarget.style.borderColor="#444444"; }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sliding card */}
+      <div
+        onClick={() => onSelect(p)}
+        style={{
+          cursor:"pointer",
+          transform: slideStyle.transform,
+          opacity: slideStyle.opacity,
+          transition: phase !== "idle"
+            ? `transform ${DURATION}ms cubic-bezier(0.4,0,0.2,1), opacity ${DURATION}ms ease`
+            : "none"
+        }}>
+
+        {/* Big colour bar — fills the spotlight hero area */}
+        <div style={{ display:"flex", height:230, width:"100%", marginTop:"3.2rem" }}>
+          {p.colors.map((c,ci) => (
+            <div key={ci}
+              style={{ flex:1, background:c.hex, transition:"flex 0.4s cubic-bezier(0.4,0,0.2,1)" }}
+              onMouseEnter={e => e.currentTarget.style.flex="3.5"}
+              onMouseLeave={e => e.currentTarget.style.flex="1"}
+            />
+          ))}
+        </div>
+
+        {/* Info strip */}
+        <div style={{
+          padding:"1.15rem 1.4rem",
+          background:"#ffffff",
+          borderTop:"2px solid #000000",
+          display:"flex", alignItems:"center",
+          justifyContent:"space-between", gap:"1rem"
+        }}>
+          <div style={{minWidth:0}}>
+            <div style={{
+              fontFamily:"'Space Grotesk','DM Sans',sans-serif", fontWeight:900, fontSize:"1.35rem",
+              color:"#000000", letterSpacing:"-0.04em", marginBottom:"0.35rem",
+              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+              textTransform:"uppercase"
+            }}>{p.name}</div>
+            <div style={{display:"flex", gap:"0.3rem", flexWrap:"wrap"}}>
+              {p.themes.map(t => (
+                <span key={t} style={{
+                  fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", fontWeight:800,
+                  background:"transparent", color:"rgba(0,0,0,0.35)",
+                  padding:"0.1rem 0.45rem", letterSpacing:"0.08em", textTransform:"uppercase",
+                  border:"1px solid #333"
+                }}>{t}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Colour swatches */}
+          <div style={{display:"flex", gap:"0.35rem", flexShrink:0}}>
+            {p.colors.map((c,ci) => (
+              <div key={ci} style={{
+                width:26, height:26,
+                background:c.hex,
+                border:"2px solid #000000",
+                boxShadow:`0 3px 10px rgba(0,0,0,0.5)`
+              }}/>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+//  PARALLAX SHAPES — fixed, scroll-driven
+//  EXPLORE PAGE 
+function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
+  const {palace, tk} = useApp();
+
+  const [inputQ,          setInputQ]          = useState("");   // what's currently typed
+  const [tags,            setTags]            = useState(searchTags || []);
+  const [selectedThemes,  setSelectedThemes]  = useState([]);
+  const [selectedCounts,  setSelectedCounts]  = useState([]);
+  const [matchColors,     setMatchColors]      = useState([]);
+  const [palaceOpen,      setPalaceOpen]       = useState(false);
+  const [sortMode,        setSortMode]         = useState("new"); // "new"|"popular"|"random"
+  const [randomSeed,      setRandomSeed]       = useState(0);
+
+  // Sync tags up to App when they change
+  useEffect(() => { onTagsChange && onTagsChange(tags); }, [tags]);
+
+  // Sync incoming tags from App (e.g. goToTheme) into local state
+  useEffect(() => { setTags(searchTags || []); }, [JSON.stringify(searchTags)]);
+
+  // Add a tag (from suggestion click), keep dropdown open, clear input
+  const addTag = (tag) => {
+    const norm = tag.trim().toLowerCase();
+    if (!norm) return;
+    setTags(prev => prev.includes(norm) ? prev : [...prev, norm]);
+    setInputQ("");
+  };
+  const removeTag = (tag) => setTags(prev => prev.filter(t => t !== tag));
+  const clearAllTags = () => { setTags([]); setInputQ(""); };
+
+  // q used for spotlight visibility: hidden when any tag exists OR input has text
+  const q = tags.length > 0 || inputQ.trim().length > 0 ? "active" : "";
+
+  const handleQChange = (val) => { setInputQ(val); };
+
+  //  DUAL-LAYER GRADIENT STATE for buttery cross-fade 
+  // We keep TWO gradient slots: "from" (fading out) and "to" (fading in).
+  // On each palette change we swap them with a CSS opacity transition.
+  const [gradFrom,    setGradFrom]    = useState(null);   // previous gradient (opacity → 0)
+  const [gradTo,      setGradTo]      = useState(null);   // current gradient  (opacity → 1)
+  const [fading,      setFading]      = useState(false);  // is a cross-fade in progress?
+  const activePaletteRef = useRef(null);                  // last palette ever hovered
+
+  function buildGradient(palette) {
+    if (!palette) return null;
+    const colors = palette.colors;
+    const stops = colors.map((c, i) => {
+      const pct = Math.round((i / Math.max(colors.length - 1, 1)) * 100);
+      return `${c.hex} ${pct}%`;   // reduced from 0.62 → 0.32
+    }).join(", ");
+    return `linear-gradient(90deg, ${stops})`;
+  }
+
+  //  SPOTLIGHT — powered by Palette Palace 
+  // Use palace palettes as the carousel source; fall back gracefully when empty
+  const spotlightPalettes = palace.length > 0 ? palace : [];
+  const [spotIdx, setSpotIdx] = useState(0);
+
+  // Clamp spotIdx when palace shrinks
+  useEffect(() => {
+    if (spotlightPalettes.length > 0 && spotIdx >= spotlightPalettes.length) {
+      setSpotIdx(spotlightPalettes.length - 1);
+    }
+  }, [spotlightPalettes.length]);
+
+  // Auto-advance carousel every 5s when user is not hovering
+  const spotTimerRef   = useRef(null);
+  const userHoveredRef = useRef(false);
+
+  function startSpotCycle() {
+    if (spotTimerRef.current) clearInterval(spotTimerRef.current);
+    if (spotlightPalettes.length < 2) return;
+    spotTimerRef.current = setInterval(() => {
+      if (!userHoveredRef.current) {
+        setSpotIdx(i => (i + 1) % spotlightPalettes.length);
+      }
+    }, 5000);
+  }
+
+  useEffect(() => {
+    startSpotCycle();
+    return () => { if (spotTimerRef.current) clearInterval(spotTimerRef.current); };
+  }, [spotlightPalettes.length]);
+
+  // When spotlight index changes, drive the background gradient
+  useEffect(() => {
+    const p = spotlightPalettes[spotIdx];
+    if (p) triggerGradientChange(p);
+  }, [spotIdx, spotlightPalettes.length]);
+
+  // On first mount, seed gradient from first palace palette (or no-op)
+  useEffect(() => {
+    const p = spotlightPalettes[0];
+    if (p) {
+      const initial = buildGradient(p);
+      setGradTo(initial);
+      activePaletteRef.current = p;
+    }
+  }, []);
+
+  function triggerGradientChange(newPalette) {
+    // kept for spotlight compatibility — no-op on explore page now
+    activePaletteRef.current = newPalette;
+    const newGrad = buildGradient(newPalette);
+    setGradTo(newGrad);
+  }
+
+  // Applied palette — set explicitly by clicking "Apply" on a card
+  const [appliedPalette, setAppliedPalette] = useState(null);
+
+  // Wrapped-style shapes: generated deterministically from palette
+  const wrappedShapes = useMemo(() => {
+    if (!appliedPalette) return [];
+    const seed  = appliedPalette.id * 13;
+    const rnd   = (n, s=0) => ((seed + s*37 + n*19) % 100) / 100;
+    const cols  = appliedPalette.colors.map(c=>c.hex);
+    const types = ["rect","circle","triangle","halfcircle","diamond","bar"];
+    return Array.from({length:22}, (_,i) => ({
+      type   : types[Math.floor(rnd(i,1)*types.length)],
+      x      : rnd(i,2)*96,
+      y      : rnd(i,3)*96,
+      size   : 30 + rnd(i,4)*180,
+      color  : cols[i % cols.length],
+      rotate : Math.floor(rnd(i,5)*360),
+    }));
+  }, [appliedPalette]);
+
+  function applyPaletteToPage(palette) {
+    triggerGradientChange(palette);
+    setAppliedPalette(prev => prev && prev.id === palette.id ? null : palette); // toggle
+  }
+
+  // Dummy hover handler
+  const handleCardHover = useCallback(() => {}, []);
+
+  const toggleTheme = useCallback(th => {
+    setSelectedThemes(prev => prev.includes(th) ? prev.filter(x => x !== th) : [...prev, th]);
+  }, []);
+
+  const toggleCount = useCallback(n => {
+    setSelectedCounts(prev => prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n]);
+  }, []);
+
+  const toggleMatchColor = useCallback(sc => {
+    setMatchColors(prev => {
+      if (prev.some(mc => mc.hex === sc.hex)) return prev.filter(mc => mc.hex !== sc.hex);
+      const rgb = hexToRgb(sc.hex);
+      return [...prev, {...sc, rgb}];
+    });
+  }, []);
+
+  const inputLow = inputQ.toLowerCase().trim();
+
+  const filtered = PALETTES.filter(p => {
+    if (selectedThemes.length > 0 && !selectedThemes.every(t => p.themes.includes(t))) return false;
+    if (selectedCounts.length > 0) {
+      const pass = selectedCounts.some(n => n === 99 ? p.colors.length >= 7 : p.colors.length === n);
+      if (!pass) return false;
+    }
+    if (matchColors.length > 0) {
+      if (!matchColors.every(mc => p.colors.some(c => colorDist(c.rgb, mc.rgb) < 65))) return false;
+    }
+    // Tags: palette must match ALL selected tags (each tag hits theme, name, or hex)
+    if (tags.length > 0) {
+      const allMatch = tags.every(tag =>
+        p.themes.some(t => t.includes(tag)) ||
+        p.name.toLowerCase().includes(tag) ||
+        p.colors.some(c => c.hex.toLowerCase().includes(tag))
+      );
+      if (!allMatch) return false;
+    }
+    // Live input text: additional filter on top of tags
+    if (inputLow) {
+      const hit = p.themes.some(t => t.includes(inputLow)) ||
+                  p.name.toLowerCase().includes(inputLow) ||
+                  p.colors.some(c => c.hex.toLowerCase().includes(inputLow));
+      if (!hit) return false;
+    }
+    return true;
+  });
+
+  const hasFilters = selectedThemes.length > 0 || selectedCounts.length > 0 || matchColors.length > 0 || tags.length > 0 || inputQ;
+  const resetFilters = () => { setSelectedThemes([]); setSelectedCounts([]); setMatchColors([]); clearAllTags(); };
+
+  // Apply sort to filtered list
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    if (sortMode === "popular") return arr.sort((a,b) => (b.likes||0) - (a.likes||0));
+    if (sortMode === "random")  return arr.sort(() => Math.sin(randomSeed + arr.indexOf(arr[0])) - 0.5);
+    // "new" = sort by date descending
+    return arr.sort((a,b) => (b.date||"") > (a.date||"") ? 1 : -1);
+  }, [filtered, sortMode, randomSeed]);
+
+  const activePal = activePaletteRef.current;
+
+  // SVG shape renderer for Wrapped layer
+  function WrappedShape({s}) {
+    const style = {position:"absolute",left:`${s.x}%`,top:`${s.y}%`,pointerEvents:"none",zIndex:0};
+    if (s.type==="circle")
+      return <div style={{...style,width:s.size,height:s.size,background:s.color,borderRadius:"50%",transform:`rotate(${s.rotate}deg)`}}/>;
+    if (s.type==="triangle")
+      return <div style={{...style,width:s.size,height:s.size,background:s.color,clipPath:"polygon(50% 0%,100% 100%,0% 100%)",transform:`rotate(${s.rotate}deg)`}}/>;
+    if (s.type==="halfcircle")
+      return <div style={{...style,width:s.size,height:s.size/2,background:s.color,borderRadius:`${s.size}px ${s.size}px 0 0`,transform:`rotate(${s.rotate}deg)`}}/>;
+    if (s.type==="diamond")
+      return <div style={{...style,width:s.size*0.7,height:s.size*0.7,background:s.color,transform:`rotate(${s.rotate+45}deg)`}}/>;
+    if (s.type==="bar")
+      return <div style={{...style,width:s.size*2.5,height:s.size*0.25,background:s.color,transform:`rotate(${s.rotate}deg)`}}/>;
+    return <div style={{...style,width:s.size,height:s.size,background:s.color,transform:`rotate(${s.rotate}deg)`}}/>;
+  }
+
+  return (
+    <div style={{minHeight:"100vh",background:"#ffffff",fontFamily:"'DM Sans',sans-serif",
+      display:"flex",flexDirection:"column",position:"relative"}}>
+
+      <PalaceDrawer
+        open={palaceOpen}
+        onClose={() => setPalaceOpen(false)}
+        onOpenPalette={p => { setPalaceOpen(false); onSelectPalette(p); }}
+      />
+
+      {/* ── HEADER ── */}
+      <header style={{
+        padding:"0.85rem 1.5rem",
+        display:"flex",alignItems:"center",gap:"1rem",
+        borderBottom:"2px solid #000000",
+        background:"#ffffff",
+        position:"sticky",top:0,zIndex:100,flexWrap:"wrap"
+      }}>
+        {/* Brand */}
+        <div style={{display:"flex",alignItems:"center",flexShrink:0}}>
+          <div style={{
+            fontFamily:"'Space Grotesk','DM Sans',sans-serif",
+            fontWeight:900,fontSize:"1.25rem",color:"#000000",letterSpacing:"-0.05em",lineHeight:1
+          }}>COLOR CLUBS</div>
+        </div>
+
+        {/* Search */}
+        <SearchBar tk={tk} inputQ={inputQ} tags={tags}
+          onInputChange={handleQChange} onAddTag={addTag}
+          onRemoveTag={removeTag} onClearAll={clearAllTags}/>
+
+        {/* Palace button */}
+        <Btn onClick={() => setPalaceOpen(true)}
+          style={{
+            marginLeft:"auto",flexShrink:0,
+            background:"transparent",
+            border:"2px solid #000000",
+            padding:"0.45rem 1rem",color:"#000000",
+            fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.72rem",
+            letterSpacing:"0.08em",textTransform:"uppercase",
+            display:"flex",alignItems:"center",gap:"0.4rem"
+          }}
+          hover={{background:"#000000",color:"#ffffff"}}>
+          ★ PALACE
+          {palace.length > 0 && (
+            <span style={{
+              background:"#000000",color:"#ffffff",
+              padding:"0.05rem 0.4rem",fontSize:"0.62rem",fontWeight:900,
+              marginLeft:"0.1rem"
+            }}>{palace.length}</span>
+          )}
+        </Btn>
+      </header>
+
+      {/* ── BODY: SIDEBAR + MAIN ── */}
+      <div style={{display:"flex",flex:1,position:"relative",zIndex:1}}>
+
+        {/* ── LEFT SIDEBAR — all filters + tools ── */}
+        <aside style={{
+          width:260,flexShrink:0,
+          borderRight:"2px solid #000000",
+          background:"#ffffff",
+          overflowY:"auto",
+          height:"calc(100vh - 62px)",
+          position:"sticky",top:62,
+          display:"flex",flexDirection:"column"
+        }}>
+
+          {/* Sidebar header — editorial style */}
+          <div style={{position:"relative",overflow:"hidden",padding:"1.4rem 1.2rem 1.1rem",borderBottom:"2px solid #000000",flexShrink:0,background:"#ffffff"}}>
+            {/* Ghost text */}
+            <div style={{
+              position:"absolute",top:"-0.6rem",left:"-0.1rem",
+              fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+              fontSize:"5rem",color:"transparent",lineHeight:0.85,
+              WebkitTextStroke:"1.5px rgba(0,0,0,0.06)",
+              userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em"
+            }}>FILTER</div>
+            <div style={{position:"relative",zIndex:1}}>
+              <div style={{fontSize:"0.45rem",fontWeight:800,letterSpacing:"0.22em",
+                textTransform:"uppercase",color:"#000000",marginBottom:"0.3rem",
+                borderLeft:"2px solid #000000",paddingLeft:"0.5rem",fontFamily:"'DM Sans',sans-serif"}}>Browse</div>
+              <div style={{
+                fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                fontSize:"1.5rem",color:"#000000",letterSpacing:"-0.04em",lineHeight:0.92
+              }}>
+                {sorted.length}&nbsp;
+                <span style={{WebkitTextStroke:"1.5px rgba(0,0,0,0.18)",color:"transparent",fontSize:"1.3rem"}}>
+                  PALETTES
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* SORT */}
+          <div style={{padding:"1rem 1.2rem 0.85rem",borderBottom:"1px solid #dddddd"}}>
+            <SideLabel>Sort by</SideLabel>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.2rem"}}>
+              {[["new","↑ NEWEST"],["popular","♥ POPULAR"],["random","⚄ RANDOM"]].map(([mode,label])=>(
+                <button key={mode}
+                  onClick={()=>{ setSortMode(mode); if(mode==="random") setRandomSeed(Math.random()); }}
+                  style={{
+                    fontFamily:"'DM Sans',sans-serif",fontSize:"0.72rem",fontWeight:800,
+                    padding:"0.38rem 0.7rem",cursor:"pointer",textAlign:"left",
+                    border:`1.5px solid ${sortMode===mode?"#fff":"#333"}`,
+                    background:sortMode===mode?"#fff":"transparent",
+                    color:sortMode===mode?"#000":"#555",
+                    letterSpacing:"0.08em",transition:"all .15s"
+                  }}
+                  onMouseEnter={e=>{if(sortMode!==mode){e.currentTarget.style.borderColor="#000000";e.currentTarget.style.color="#000000";}}}
+                  onMouseLeave={e=>{if(sortMode!==mode){e.currentTarget.style.borderColor="#333";e.currentTarget.style.color="#888888";}}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* COLOR COUNT */}
+          <div style={{padding:"1rem 1.2rem 0.85rem",borderBottom:"1px solid #dddddd"}}>
+            <SideLabel>Color Count</SideLabel>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0.28rem"}}>
+              {COUNT_TILES.map(({label,n}) => {
+                const isAny = n === 0;
+                const active = isAny ? selectedCounts.length === 0 : selectedCounts.includes(n);
+                return (
+                  <button key={n}
+                    onClick={() => { if (isAny) { setSelectedCounts([]); return; } toggleCount(n); }}
+                    style={{
+                      fontFamily:"'DM Sans',sans-serif",fontSize:"0.7rem",fontWeight:800,
+                      padding:"0.28rem 0.5rem",cursor:"pointer",
+                      border:`1.5px solid ${active?"#fff":"#333"}`,
+                      background:active?"#fff":"transparent",
+                      color:active?"#000":"#555",
+                      letterSpacing:"0.06em",transition:"all .15s",minWidth:34
+                    }}
+                    onMouseEnter={e=>{if(!active){e.currentTarget.style.borderColor="#000000";e.currentTarget.style.color="#000000";}}}
+                    onMouseLeave={e=>{if(!active){e.currentTarget.style.borderColor="#333";e.currentTarget.style.color="#888888";}}}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* THEMES */}
+          <div style={{padding:"1rem 1.2rem 0.85rem",borderBottom:"1px solid #dddddd",flex:1}}>
+            <SideLabel>Themes</SideLabel>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.12rem"}}>
+              {ALL_THEMES.map(th => {
+                const active = selectedThemes.includes(th);
+                return (
+                  <button key={th} onClick={() => toggleTheme(th)}
+                    style={{
+                      fontFamily:"'DM Sans',sans-serif",fontSize:"0.72rem",
+                      fontWeight:active?800:400,padding:"0.32rem 0.6rem",
+                      textAlign:"left",cursor:"pointer",
+                      border:`1.5px solid ${active?"#fff":"transparent"}`,
+                      background:active?"#fff":"transparent",
+                      color:active?"#000":"#555",
+                      letterSpacing:active?"0.08em":"0.01em",
+                      textTransform:active?"uppercase":"none",
+                      transition:"all .15s"
+                    }}
+                    onMouseEnter={e=>{if(!active){e.currentTarget.style.color="#fff";}}}
+                    onMouseLeave={e=>{if(!active){e.currentTarget.style.color="#888888";}}}>
+                    {active?"✓ ":""}{th}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* COLOR MATCH */}
+          <div style={{padding:"1rem 1.2rem 0.85rem",borderBottom:"1px solid #dddddd"}}>
+            <SideLabel>Color Match</SideLabel>
+            <ColorMatchPanel tk={tk} matchColors={matchColors}
+              onToggleColor={toggleMatchColor} onClearColors={() => setMatchColors([])}/>
+          </div>
+
+          {/* RESET */}
+          {hasFilters && (
+            <div style={{padding:"0.75rem 1.2rem",borderBottom:"1px solid #dddddd"}}>
+              <button onClick={resetFilters}
+                style={{
+                  width:"100%",fontFamily:"'DM Sans',sans-serif",fontSize:"0.7rem",fontWeight:800,
+                  padding:"0.42rem",cursor:"pointer",
+                  border:"1.5px solid #000000",background:"transparent",color:"#000000",
+                  letterSpacing:"0.1em",textTransform:"uppercase",transition:"all .15s"
+                }}
+                onMouseEnter={e=>{e.currentTarget.style.background="#000000";e.currentTarget.style.color="#ffffff";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#000000";}}>
+                ✕ CLEAR ALL
+              </button>
+            </div>
+          )}
+
+          {/* TOOLS */}
+          <div style={{padding:"1rem 1.2rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
+            <CreateWidget tk={tk} onCreated={onSelectPalette}/>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT ── */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflowY:"auto",background:"transparent"}}>
+
+          {/* Spotlight — palace carousel, only when palace has items and not searching */}
+          {tags.length === 0 && !inputQ.trim() && palace.length > 0 && (
+            <SpotlightSection
+              palettes={spotlightPalettes}
+              activeIdx={Math.min(spotIdx, Math.max(0, spotlightPalettes.length - 1))}
+              onSelect={onSelectPalette}
+              onDotClick={idx => {
+                userHoveredRef.current = true;
+                setSpotIdx(idx);
+                const p = spotlightPalettes[idx];
+                if (p) triggerGradientChange(p);
+              }}
+              onLeave={() => { userHoveredRef.current = false; }}
+              tk={tk}
+            />
+          )}
+
+          {/* Palette grid */}
+          <main style={{flex:1,padding:"1.4rem 1.4rem",background:"transparent"}}>
+
+            {/* Active filter summary */}
+            {hasFilters && (
+              <div style={{marginBottom:"0.9rem",display:"flex",alignItems:"center",
+                gap:"0.4rem",flexWrap:"wrap"}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.68rem",
+                  color:"rgba(0,0,0,0.3)",fontWeight:700,letterSpacing:"0.05em",textTransform:"uppercase"}}>
+                  {sorted.length} results
+                </span>
+                {tags.map(tag => (
+                  <span key={tag} onClick={() => removeTag(tag)}
+                    style={{background:"#000000",color:"#ffffff",
+                      padding:"0.1rem 0.45rem",fontSize:"0.62rem",fontWeight:800,
+                      cursor:"pointer",letterSpacing:"0.05em",
+                      display:"flex",alignItems:"center",gap:"0.2rem",textTransform:"uppercase",
+                      fontFamily:"'DM Sans',sans-serif"}}>
+                    {tag} ×
+                  </span>
+                ))}
+                {selectedThemes.map(t => (
+                  <span key={t} onClick={() => toggleTheme(t)}
+                    style={{background:"#000000",color:"#ffffff",
+                      padding:"0.1rem 0.45rem",fontSize:"0.62rem",fontWeight:800,
+                      cursor:"pointer",textTransform:"uppercase",
+                      letterSpacing:"0.05em",fontFamily:"'DM Sans',sans-serif"}}>{t} ×</span>
+                ))}
+                {selectedCounts.map(n => (
+                  <span key={n} onClick={() => toggleCount(n)}
+                    style={{background:"#000000",color:"#ffffff",
+                      padding:"0.1rem 0.45rem",fontSize:"0.62rem",fontWeight:800,
+                      cursor:"pointer",textTransform:"uppercase",
+                      letterSpacing:"0.05em",fontFamily:"'DM Sans',sans-serif"}}>
+                    {n===99?"7+":n} COLORS ×
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {sorted.length === 0
+              ? (
+                <div style={{textAlign:"center",padding:"6rem 2rem"}}>
+                  <div style={{
+                    fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                    fontSize:"4rem",color:"transparent",
+                    WebkitTextStroke:"2px rgba(0,0,0,0.12)",letterSpacing:"-0.04em",marginBottom:"1rem"
+                  }}>NONE</div>
+                  <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.8rem",
+                    color:"rgba(0,0,0,0.18)",marginBottom:"1.2rem",fontWeight:600,
+                    letterSpacing:"0.06em",textTransform:"uppercase"}}>
+                    No palettes match your filters
+                  </div>
+                  <button onClick={resetFilters}
+                    style={{
+                      fontFamily:"'DM Sans',sans-serif",fontSize:"0.72rem",fontWeight:800,
+                      padding:"0.55rem 1.25rem",cursor:"pointer",
+                      border:"2px solid rgba(0,0,0,0.18)",background:"transparent",color:"rgba(255,255,255,0.6)",
+                      letterSpacing:"0.08em",textTransform:"uppercase",transition:"all .15s"
+                    }}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#000000";e.currentTarget.style.color="#000000";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(0,0,0,0.18)";e.currentTarget.style.color="rgba(255,255,255,0.6)";}}>
+                    ↺ Reset Filters
+                  </button>
+                </div>
+              )
+              : (
+                <div style={{
+                  display:"grid",
+                  gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",
+                  gap:"1rem"
+                }}>
+                  {sorted.map(p => (
+                    <PaletteCard
+                      key={p.id}
+                      palette={p}
+                      onClick={onSelectPalette}
+                      onHover={handleCardHover}
+                    />
+                  ))}
+                </div>
+              )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+//  ROOT APP 
+function App() {
+  const [page,        setPage]       = useState("explore");
+  // History stack of palettes — back pops, navigate pushes
+  const [history,     setHistory]    = useState([]);   // array of palette objects
+  const [searchTags,  setSearchTags] = useState([]);
+  const [palace,      setPalace]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cc_palace") || "[]"); } catch { return []; }
+  });
+  const [toast, setToast] = useState(null);
+
+  const tk = TK["dark"];
+  const selected = history[history.length - 1] || null;
+
+  useEffect(() => {
+    try { localStorage.setItem("cc_palace", JSON.stringify(palace)); } catch {}
+  }, [palace]);
+
+  useEffect(() => { document.body.style.background = tk.bg; }, [tk.bg]);
+
+  const addToPalace = useCallback(p => {
+    setPalace(prev => {
+      if (prev.some(x => x.id === p.id)) { setToast("Already in Palette Palace!"); return prev; }
+      setToast(`"${p.name}" added `);
+      return [...prev, p];
+    });
+  }, []);
+
+  const [likedIds, setLikedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cc_liked") || "[]"); } catch { return []; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("cc_liked", JSON.stringify(likedIds)); } catch {}
+  }, [likedIds]);
+
+  const likePalette = useCallback((id) => {
+    setLikedIds(prev => {
+      const isLiked = prev.includes(id);
+      const p = PALETTES.find(x => x.id === id);
+      if (p) p.likes += isLiked ? -1 : 1;
+      if (isLiked) return prev.filter(x => x !== id);
+      return [...prev, id];
+    });
+  }, []);
+
+  const removeFromPalace = useCallback(id => {
+    setPalace(prev => prev.filter(p => p.id !== id));
+    setToast("Removed from Palette Palace");
+  }, []);
+
+  const createPalette = useCallback((colors, name) => {
+    const newId = Date.now();
+    function autoThemes(hexColors) {
+      const t = new Set(["custom"]);
+      hexColors.forEach(hex => {
+        const rgb = hexToRgb(hex); if(!rgb) return;
+        const r=rgb.r/255,g=rgb.g/255,b=rgb.b/255;
+        const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+        let h=0; if(d>0){if(max===r)h=((g-b)/d+6)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4; h/=6;}
+        const hd=h*360, lum=0.2126*r+0.7152*g+0.0722*b, sat=max===0?0:d/max;
+        if(lum<0.15) t.add("dark"); if(lum>0.7) t.add("light");
+        if(sat<0.15) t.add("minimal"); if(sat>0.7&&lum>0.3&&lum<0.7) t.add("neon");
+        if(hd>=20&&hd<70) t.add("warm"); if(hd>=70&&hd<160) t.add("nature");
+        if(hd>=160&&hd<220) t.add("cool"); if(hd>=220&&hd<270) t.add("calm");
+        if(hd>=270&&hd<330) t.add("pastel"); if(hd>=330||hd<20) t.add("warm");
+        if(lum>0.55&&sat<0.5) t.add("pastel");
+        if(hd>=30&&hd<60&&lum<0.5) t.add("earthy");
+      });
+      return [...t].slice(0,5);
+    }
+    const newP = {
+      id: newId,
+      name: name || "My Palette",
+      themes: autoThemes(colors),
+      likes: 0,
+      date: new Date().toISOString().slice(0,10),
+      liked: false,
+      colors: colors.map(hex => { const rgb = hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
+    };
+    PALETTES.unshift(newP);
+    setToast(` "${newP.name}" created!`);
+    return newP;
+  }, []);
+  const navigateToPalette = useCallback(p => {
+    setHistory(prev => [...prev, p]);
+    setPage("details");
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Open palette from explore (starts a fresh history)
+  const openPalette = useCallback(p => {
+    setHistory([p]);
+    setPage("details");
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Back: pop stack — if more palettes remain, stay on details; otherwise go to explore
+  const goBack = useCallback(() => {
+    setHistory(prev => {
+      const next = prev.slice(0, -1);
+      if (next.length === 0) {
+        setPage("explore");
+      }
+      return next;
+    });
+    window.scrollTo(0, 0);
+  }, []);
+
+  const goToTheme = useCallback(theme => {
+    setSearchTags(prev => prev.includes(theme) ? prev : [...prev, theme]);
+    setHistory([]);
+    setPage("explore");
+    window.scrollTo(0, 0);
+  }, []);
+
+  return (
+    <AppCtx.Provider value={{palace, addToPalace, removeFromPalace, tk, likePalette, likedIds, createPalette}}>
+      {toast && <Toast msg={toast} onDone={() => setToast(null)}/>}
+      {page === "explore" && (
+        <div style={{animation:"pageIn 0.35s cubic-bezier(0.4,0,0.2,1)"}}>
+          <ExplorePage
+            onSelectPalette={openPalette}
+            searchTags={searchTags}
+            onTagsChange={setSearchTags}
+          />
+        </div>
+      )}
+      {page === "details" && selected && (
+        <div style={{animation:"pageIn 0.35s cubic-bezier(0.4,0,0.2,1)"}}>
+          <DetailsPage
+            palette={selected}
+            historyDepth={history.length}
+            onBack={goBack}
+            onGoHome={() => { setSearchTags([]); setHistory([]); setPage("explore"); window.scrollTo(0,0); }}
+            onGoTheme={goToTheme}
+            onNavigate={navigateToPalette}
+          />
+        </div>
+      )}
+    </AppCtx.Provider>
+  );
+
+  useEffect(() => {
+    async function fetchPalettes() {
+      const { data, error } = await _supabase
+        .from('palettes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching palettes:", error);
+      } else {
+        setPalettes(data);
+      }
+    }
+    fetchPalettes();
+  }, []);
+
+  const submit = async () => {
+    const newPalette = {
+      name: name || "My Palette",
+      colors: colors.map(hex => ({ hex, rgb: hexToRgb(hex) })),
+      themes: ["community"],
+      likes: 0
+    };
+
+    const { data, error } = await _supabase
+      .from('palettes')
+      .insert([newPalette])
+      .select();
+    
+    if (!error) {
+      onCreated && onCreated(data[0]);
+      setShow(false);
+    }
+  };
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
