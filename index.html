@@ -1550,6 +1550,30 @@ function CreateWidget({tk, onCreated}) {
     onCreated && onCreated(p);
   };
 
+ const submit = async () => {
+    const newPalette = {
+      name: name || "My Palette",
+      colors: colors.map(hex => ({ hex, rgb: hexToRgb(hex) })),
+      themes: ["community"],
+      likes: 0
+    };
+
+    // This line pushes the data to your Supabase table
+    const { data, error } = await _supabase
+      .from('palettes')
+      .insert([newPalette])
+      .select();
+    
+    if (!error && data) {
+      onCreated && onCreated(data[0]); // Updates the UI with the new data
+      setShow(false);
+      setName("");
+      setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+    } else {
+      console.error("Supabase Error:", error);
+    }
+  };
+
   const BW = {
     btn: {background:"transparent",border:"1.5px solid #000000",padding:"0.55rem 0.8rem",
       color:"#000000",fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.7rem",
@@ -2546,7 +2570,23 @@ function App() {
   useEffect(() => {
     try { localStorage.setItem("cc_liked", JSON.stringify(likedIds)); } catch {}
   }, [likedIds]);
-
+ 
+ useEffect(() => {
+     async function fetchPalettes() {
+       const { data, error } = await _supabase
+         .from('palettes')
+         .select('*')
+         .order('created_at', { ascending: false });
+ 
+       if (error) {
+         console.error("Error fetching palettes:", error);
+       } else {
+         // This replaces your static local data with the database data
+         setDbPalettes(data); 
+       }
+     }
+    fetchPalettes();
+  }, []);
   const likePalette = useCallback((id) => {
     setLikedIds(prev => {
       const isLiked = prev.includes(id);
@@ -2654,40 +2694,6 @@ function App() {
     </AppCtx.Provider>
   );
 
-  useEffect(() => {
-    async function fetchPalettes() {
-      const { data, error } = await _supabase
-        .from('palettes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching palettes:", error);
-      } else {
-        setPalettes(data);
-      }
-    }
-    fetchPalettes();
-  }, []);
-
-  const submit = async () => {
-    const newPalette = {
-      name: name || "My Palette",
-      colors: colors.map(hex => ({ hex, rgb: hexToRgb(hex) })),
-      themes: ["community"],
-      likes: 0
-    };
-
-    const { data, error } = await _supabase
-      .from('palettes')
-      .insert([newPalette])
-      .select();
-    
-    if (!error) {
-      onCreated && onCreated(data[0]);
-      setShow(false);
-    }
-  };
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
