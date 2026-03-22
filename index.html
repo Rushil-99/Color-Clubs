@@ -1541,11 +1541,75 @@ function CreateWidget({tk, onCreated}) {
   const updateColor = (i, hex) => setColors(prev => prev.map((v,j) => j===i ? hex : v));
   const addSlot     = () => { if (colors.length < 7) setColors(prev => [...prev, randHex()]); };
   const removeSlot  = (i) => { if (colors.length > 2) setColors(prev => prev.filter((_,j) => j !== i)); };
-  const submit = () => {
-    const p = createPalette(colors, name || "My Palette");
-    setShow(false); setName("");
-    setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
-    onCreated && onCreated(p);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const paletteName = name.trim() || "My Palette";
+
+    function autoThemes(hexColors) {
+      const t = new Set(["community"]);
+      hexColors.forEach(hex => {
+        const rgb = hexToRgb(hex); if(!rgb) return;
+        const r=rgb.r/255,g=rgb.g/255,b=rgb.b/255;
+        const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+        let h=0; if(d>0){if(max===r)h=((g-b)/d+6)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;}
+        const hd=h*360,lum=0.2126*r+0.7152*g+0.0722*b,sat=max===0?0:d/max;
+        if(lum<0.15)t.add("dark"); if(lum>0.7)t.add("light");
+        if(sat<0.15)t.add("minimal"); if(sat>0.7&&lum>0.3&&lum<0.7)t.add("neon");
+        if(hd>=20&&hd<70)t.add("warm"); if(hd>=70&&hd<160)t.add("nature");
+        if(hd>=160&&hd<220)t.add("cool"); if(hd>=220&&hd<270)t.add("calm");
+        if(hd>=270&&hd<330)t.add("pastel"); if(hd>=330||hd<20)t.add("warm");
+        if(lum>0.55&&sat<0.5)t.add("pastel");
+        if(hd>=30&&hd<60&&lum<0.5)t.add("earthy");
+      });
+      return [...t].slice(0,5);
+    }
+
+    // Send only what Supabase expects — colors as array of {hex} objects (no rgb, avoids schema mismatch)
+    const payload = {
+      name: paletteName,
+      colors: colors.map(hex => ({ hex })),
+      themes: autoThemes(colors),
+      likes: 0,
+    };
+
+    try {
+      const { data, error } = await _supabase.from("palettes").insert([payload]).select().single();
+      if (error) throw error;
+      // Normalize the returned row fully
+      const saved = {
+        ...data,
+        themes: data.themes || [],
+        likes: data.likes || 0,
+        date: data.date || (data.created_at ? data.created_at.slice(0,10) : new Date().toISOString().slice(0,10)),
+        colors: (data.colors || colors.map(h=>({hex:h}))).map(c => ({
+          hex: c.hex,
+          rgb: hexToRgb(c.hex) || {r:0,g:0,b:0}
+        }))
+      };
+      onCreated && onCreated(saved);
+      setShow(false); setName(""); setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+    } catch(err) {
+      console.error("Supabase insert error:", err);
+      const msg = err?.message || err?.error_description || String(err);
+      setSubmitError(msg);
+      // Save locally so user doesn't lose their work
+      const localP = {
+        id: Date.now(), name: paletteName,
+        themes: autoThemes(colors), likes: 0,
+        date: new Date().toISOString().slice(0,10), liked: false,
+        colors: colors.map(hex => { const rgb=hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
+      };
+      onCreated && onCreated(localP);
+      setShow(false); setName(""); setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const BW = {
@@ -1703,12 +1767,20 @@ function CreateWidget({tk, onCreated}) {
                     ↺ RANDOM
                   </button>
                   <button onClick={submit}
-                    style={{...BW.btnFill, flex:2}}
-                    onMouseEnter={e=>e.currentTarget.style.background="#333333"}
+                    style={{...BW.btnFill, flex:2, opacity: submitting ? 0.6 : 1}}
+                    disabled={submitting}
+                    onMouseEnter={e=>{ if(!submitting) e.currentTarget.style.background="#333333"; }}
                     onMouseLeave={e=>e.currentTarget.style.background="#000000"}>
-                    ✓ SUBMIT
+                    {submitting ? "SAVING…" : "✓ SUBMIT"}
                   </button>
                 </div>
+                {submitError && (
+                  <div style={{marginTop:"0.6rem",padding:"0.5rem 0.7rem",background:"#fff0f0",
+                    border:"1px solid #ffaaaa",fontFamily:"'DM Sans',sans-serif",
+                    fontSize:"0.65rem",color:"#cc0000",fontWeight:600,wordBreak:"break-all"}}>
+                    ⚠ DB error: {submitError}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1989,7 +2061,7 @@ function SpotlightSection({palettes, activeIdx, onSelect, onNavigate, onDotClick
 
 //  PARALLAX SHAPES — fixed, scroll-driven
 //  EXPLORE PAGE 
-function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
+function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propPalettes, onPaletteCreated}) {
   const {palace, tk} = useApp();
 
   const [inputQ,          setInputQ]          = useState("");   // what's currently typed
@@ -2140,7 +2212,8 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
 
   const inputLow = inputQ.toLowerCase().trim();
 
-  const filtered = PALETTES.filter(p => {
+  const paletteList = propPalettes || PALETTES;
+  const filtered = paletteList.filter(p => {
     if (selectedThemes.length > 0 && !selectedThemes.every(t => p.themes.includes(t))) return false;
     if (selectedCounts.length > 0) {
       const pass = selectedCounts.some(n => n === 99 ? p.colors.length >= 7 : p.colors.length === n);
@@ -2396,7 +2469,7 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
 
           {/* TOOLS */}
           <div style={{padding:"1rem 1.2rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
-            <CreateWidget tk={tk} onCreated={onSelectPalette}/>
+            <CreateWidget tk={tk} onCreated={p => { onPaletteCreated && onPaletteCreated(p); onSelectPalette(p); }}/>
           </div>
         </aside>
 
@@ -2512,13 +2585,66 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
 //  ROOT APP 
 function App() {
   const [page,        setPage]       = useState("explore");
-  // History stack of palettes — back pops, navigate pushes
-  const [history,     setHistory]    = useState([]);   // array of palette objects
+  const [history,     setHistory]    = useState([]);
   const [searchTags,  setSearchTags] = useState([]);
   const [palace,      setPalace]     = useState(() => {
     try { return JSON.parse(localStorage.getItem("cc_palace") || "[]"); } catch { return []; }
   });
-  const [toast, setToast] = useState(null);
+  const [toast,       setToast]      = useState(null);
+
+  // DB PALETTES — loaded from Supabase, merged with static + palace
+  const [dbPalettes,  setDbPalettes] = useState(PALETTES);
+
+  // Helper: normalize a raw palette row from Supabase into the app's expected shape
+  function normalizePalette(p) {
+    return {
+      ...p,
+      themes: Array.isArray(p.themes) ? p.themes : (p.themes ? [p.themes] : []),
+      likes:  typeof p.likes === "number" ? p.likes : 0,
+      date:   p.date || (p.created_at ? p.created_at.slice(0,10) : ""),
+      colors: (p.colors || []).map(c => {
+        const hex = (c.hex || c).toUpperCase().startsWith("#") ? (c.hex || c) : "#"+(c.hex||c);
+        const rgb = c.rgb || hexToRgb(hex) || {r:0,g:0,b:0};
+        return { hex, rgb };
+      })
+    };
+  }
+
+  useEffect(() => {
+    async function fetchPalettes() {
+      // Load palace from localStorage so we can merge it in
+      let palaceLocal = [];
+      try { palaceLocal = JSON.parse(localStorage.getItem("cc_palace") || "[]"); } catch {}
+
+      try {
+        const { data, error } = await _supabase
+          .from("palettes")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) { console.error("Supabase fetch:", error); throw error; }
+
+        const normalized = (data || []).map(normalizePalette);
+        const dbIds = new Set(normalized.map(p => String(p.id)));
+
+        // Add static palettes not in db
+        const localOnly = PALETTES.filter(p => !dbIds.has(String(p.id)));
+
+        // Add palace palettes not already in db or static (user-created, saved locally)
+        const palaceExtra = palaceLocal
+          .filter(p => !dbIds.has(String(p.id)) && !PALETTES.some(s => String(s.id) === String(p.id)))
+          .map(normalizePalette);
+
+        setDbPalettes([...normalized, ...palaceExtra, ...localOnly]);
+      } catch(err) {
+        // Fallback: db + palace + static
+        const palaceNorm = palaceLocal.map(normalizePalette);
+        const palaceIds  = new Set(palaceNorm.map(p => String(p.id)));
+        const staticExtra = PALETTES.filter(p => !palaceIds.has(String(p.id)));
+        setDbPalettes([...palaceNorm, ...staticExtra]);
+      }
+    }
+    fetchPalettes();
+  }, []);
 
   const tk = TK["dark"];
   const selected = history[history.length - 1] || null;
@@ -2532,9 +2658,11 @@ function App() {
   const addToPalace = useCallback(p => {
     setPalace(prev => {
       if (prev.some(x => x.id === p.id)) { setToast("Already in Palette Palace!"); return prev; }
-      setToast(`"${p.name}" added `);
+      setToast(`"${p.name}" added`);
       return [...prev, p];
     });
+    // Ensure it's in the explore grid too (survives refresh via palace merge in fetchPalettes)
+    setDbPalettes(prev => prev.some(x => String(x.id)===String(p.id)) ? prev : [p, ...prev]);
   }, []);
 
   const [likedIds, setLikedIds] = useState(() => {
@@ -2548,10 +2676,17 @@ function App() {
   const likePalette = useCallback((id) => {
     setLikedIds(prev => {
       const isLiked = prev.includes(id);
-      const p = PALETTES.find(x => x.id === id);
-      if (p) p.likes += isLiked ? -1 : 1;
-      if (isLiked) return prev.filter(x => x !== id);
-      return [...prev, id];
+      const delta = isLiked ? -1 : 1;
+      // Optimistic local update
+      setDbPalettes(ps => ps.map(p =>
+        String(p.id) === String(id) ? {...p, likes: (p.likes||0) + delta} : p
+      ));
+      // Sync to Supabase
+      _supabase.from("palettes").select("likes").eq("id", id).single()
+        .then(({ data }) => {
+          if (data) _supabase.from("palettes").update({ likes: (data.likes||0) + delta }).eq("id", id);
+        }).catch(console.error);
+      return isLiked ? prev.filter(x => x !== id) : [...prev, id];
     });
   }, []);
 
@@ -2561,68 +2696,42 @@ function App() {
   }, []);
 
   const createPalette = useCallback((colors, name) => {
-    const newId = Date.now();
-    function autoThemes(hexColors) {
-      const t = new Set(["custom"]);
-      hexColors.forEach(hex => {
-        const rgb = hexToRgb(hex); if(!rgb) return;
-        const r=rgb.r/255,g=rgb.g/255,b=rgb.b/255;
-        const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
-        let h=0; if(d>0){if(max===r)h=((g-b)/d+6)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4; h/=6;}
-        const hd=h*360, lum=0.2126*r+0.7152*g+0.0722*b, sat=max===0?0:d/max;
-        if(lum<0.15) t.add("dark"); if(lum>0.7) t.add("light");
-        if(sat<0.15) t.add("minimal"); if(sat>0.7&&lum>0.3&&lum<0.7) t.add("neon");
-        if(hd>=20&&hd<70) t.add("warm"); if(hd>=70&&hd<160) t.add("nature");
-        if(hd>=160&&hd<220) t.add("cool"); if(hd>=220&&hd<270) t.add("calm");
-        if(hd>=270&&hd<330) t.add("pastel"); if(hd>=330||hd<20) t.add("warm");
-        if(lum>0.55&&sat<0.5) t.add("pastel");
-        if(hd>=30&&hd<60&&lum<0.5) t.add("earthy");
-      });
-      return [...t].slice(0,5);
-    }
     const newP = {
-      id: newId,
-      name: name || "My Palette",
-      themes: autoThemes(colors),
-      likes: 0,
-      date: new Date().toISOString().slice(0,10),
-      liked: false,
-      colors: colors.map(hex => { const rgb = hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
+      id: Date.now(), name: name || "My Palette", themes: ["community"],
+      likes: 0, date: new Date().toISOString().slice(0,10), liked: false,
+      colors: colors.map(hex => { const rgb=hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
     };
-    PALETTES.unshift(newP);
-    setToast(` "${newP.name}" created!`);
+    setDbPalettes(prev => [newP, ...prev]);
+    setToast(`"${newP.name}" created!`);
     return newP;
   }, []);
+
+  const handlePaletteCreated = useCallback(p => {
+    const norm = normalizePalette(p);
+    setDbPalettes(prev => prev.some(x => String(x.id)===String(norm.id)) ? prev : [norm, ...prev]);
+    setToast(`"${norm.name}" created!`);
+  }, []);
+
   const navigateToPalette = useCallback(p => {
-    setHistory(prev => [...prev, p]);
-    setPage("details");
-    window.scrollTo(0, 0);
+    setHistory(prev => [...prev, p]); setPage("details"); window.scrollTo(0,0);
   }, []);
 
-  // Open palette from explore (starts a fresh history)
   const openPalette = useCallback(p => {
-    setHistory([p]);
-    setPage("details");
-    window.scrollTo(0, 0);
+    setHistory([p]); setPage("details"); window.scrollTo(0,0);
   }, []);
 
-  // Back: pop stack — if more palettes remain, stay on details; otherwise go to explore
   const goBack = useCallback(() => {
     setHistory(prev => {
-      const next = prev.slice(0, -1);
-      if (next.length === 0) {
-        setPage("explore");
-      }
+      const next = prev.slice(0,-1);
+      if (next.length === 0) setPage("explore");
       return next;
     });
-    window.scrollTo(0, 0);
+    window.scrollTo(0,0);
   }, []);
 
   const goToTheme = useCallback(theme => {
     setSearchTags(prev => prev.includes(theme) ? prev : [...prev, theme]);
-    setHistory([]);
-    setPage("explore");
-    window.scrollTo(0, 0);
+    setHistory([]); setPage("explore"); window.scrollTo(0,0);
   }, []);
 
   return (
@@ -2634,6 +2743,8 @@ function App() {
             onSelectPalette={openPalette}
             searchTags={searchTags}
             onTagsChange={setSearchTags}
+            palettes={dbPalettes}
+            onPaletteCreated={handlePaletteCreated}
           />
         </div>
       )}
@@ -2646,6 +2757,7 @@ function App() {
             onGoHome={() => { setSearchTags([]); setHistory([]); setPage("explore"); window.scrollTo(0,0); }}
             onGoTheme={goToTheme}
             onNavigate={navigateToPalette}
+            palettes={dbPalettes}
           />
         </div>
       )}
