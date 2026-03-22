@@ -35,3 +35,6 @@ Smart Generator: Users can randomly generate hex codes, lock their favorite colo
 Custom Builder: A custom-built mini color picker allows users to manually dial in HSL values, name their palette, and submit it directly to the live PostgreSQL database.
 
 Auto-Theming: When a user creates a new palette, a custom algorithm analyzes the HSL values and luminosity to automatically assign relevant tags (e.g., categorizing high-saturation/mid-luminosity colors as "neon" or low-saturation colors as "minimal").
+
+
+deployed Website : https://color-clubs.vercel.app/
