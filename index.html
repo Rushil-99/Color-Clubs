@@ -1570,9 +1570,9 @@ function CreateWidget({tk, onCreated}) {
       return [...t].slice(0,5);
     }
 
-    // Send only what Supabase expects — colors as array of {hex} objects (no rgb, avoids schema mismatch)
+    // Exact column names from Supabase table: Name (capital N), colors, themes, likes
     const payload = {
-      name: paletteName,
+      Name: paletteName,
       colors: colors.map(hex => ({ hex })),
       themes: autoThemes(colors),
       likes: 0,
@@ -1584,6 +1584,7 @@ function CreateWidget({tk, onCreated}) {
       // Normalize the returned row fully
       const saved = {
         ...data,
+        name: data.Name || data.name || paletteName,
         themes: data.themes || [],
         likes: data.likes || 0,
         date: data.date || (data.created_at ? data.created_at.slice(0,10) : new Date().toISOString().slice(0,10)),
@@ -1777,34 +1778,22 @@ function CreateWidget({tk, onCreated}) {
                 )}
                 <button
                   onClick={async () => {
-                    setSubmitError("🔍 Probing database schema...");
-                    // Step 1: read table structure by fetching with no limit
-                    const { data: rows, error: readErr } = await _supabase
-                      .from("palettes").select("*").limit(3);
-                    if (readErr) {
-                      setSubmitError("READ error: " + (readErr.message || readErr.code || JSON.stringify(readErr)));
-                      return;
+                    setSubmitError("🔍 Testing insert with correct schema...");
+                    const testPayload = { Name: "__TEST__", colors: [{hex:"#FF0000"}], themes: ["test"], likes: 0 };
+                    const { data, error } = await _supabase.from("palettes").insert([testPayload]).select().single();
+                    if (error) {
+                      setSubmitError("INSERT FAILED — " + (error.message || error.code || JSON.stringify(error)) + "\n\nCheck: Supabase → Authentication → Policies → palettes → allow INSERT for anon");
+                    } else {
+                      await _supabase.from("palettes").delete().eq("id", data.id);
+                      setSubmitError("✓ INSERT WORKS! Submit your palette now.");
                     }
-                    if (!rows || rows.length === 0) {
-                      // Table is empty — try an insert with empty object to get column list from error
-                      const { error: e2 } = await _supabase.from("palettes").insert([{}]).select();
-                      setSubmitError("Table is EMPTY. Insert probe error: " + (e2 ? (e2.message||JSON.stringify(e2)) : "no error — insert worked with empty row!"));
-                      return;
-                    }
-                    // Show discovered columns
-                    const cols = Object.keys(rows[0]);
-                    const sample = JSON.stringify(rows[0], null, 2).slice(0, 400);
-                    setSubmitError(
-                      "✓ TABLE READABLE. Columns: [" + cols.join(", ") + "]\n\nSample row:\n" + sample +
-                      "\n\n→ Update the submit function to use these exact column names."
-                    );
                   }}
                   style={{marginTop:"0.5rem",width:"100%",background:"transparent",
                     border:"1px dashed #aaaaaa",padding:"0.35rem",
                     color:"#888888",fontFamily:"'DM Sans',sans-serif",
                     fontSize:"0.6rem",fontWeight:700,letterSpacing:"0.06em",
                     textTransform:"uppercase",cursor:"pointer"}}>
-                  🔬 Discover DB Schema
+                  🔬 Test DB Insert
                 </button>
               </div>
             )}
@@ -2624,6 +2613,7 @@ function App() {
   function normalizePalette(p) {
     return {
       ...p,
+      name: p.Name || p.name || "Untitled",   // Supabase column is "Name" (capital N)
       themes: Array.isArray(p.themes) ? p.themes : (p.themes ? [p.themes] : []),
       likes:  typeof p.likes === "number" ? p.likes : 0,
       date:   p.date || (p.created_at ? p.created_at.slice(0,10) : ""),
