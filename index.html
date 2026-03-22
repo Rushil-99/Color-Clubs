@@ -35,10 +35,8 @@ const { useState, useEffect, useRef, useCallback, createContext, useContext, use
 const { createPortal } = ReactDOM;
 const { createClient } = supabase;
 
-// Use your actual Project URL and Publishable (anon) key here
-const SUPABASE_URL = 'https://qjoyvayollfbniwskfsr.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqb3l2YXlvbGxmYm5pd3NrZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzk3NzUsImV4cCI6MjA4OTc1NTc3NX0.P-oZF-MjQc8-SaiHY0FxkSk2J896RaJYKH4zXvDLCnY'; 
-
+const SUPABASE_URL      = 'https://qjoyvayollfbniwskfsr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqb3l2YXlvbGxmYm5pd3NrZnNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzk3NzUsImV4cCI6MjA4OTc1NTc3NX0.P-oZF-MjQc8-SaiHY0FxkSk2J896RaJYKH4zXvDLCnY';
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 //  DATA 
@@ -1550,30 +1548,6 @@ function CreateWidget({tk, onCreated}) {
     onCreated && onCreated(p);
   };
 
- const submit = async () => {
-    const newPalette = {
-      name: name || "My Palette",
-      colors: colors.map(hex => ({ hex, rgb: hexToRgb(hex) })),
-      themes: ["community"],
-      likes: 0
-    };
-
-    // This line pushes the data to your Supabase table
-    const { data, error } = await _supabase
-      .from('palettes')
-      .insert([newPalette])
-      .select();
-    
-    if (!error && data) {
-      onCreated && onCreated(data[0]); // Updates the UI with the new data
-      setShow(false);
-      setName("");
-      setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
-    } else {
-      console.error("Supabase Error:", error);
-    }
-  };
-
   const BW = {
     btn: {background:"transparent",border:"1.5px solid #000000",padding:"0.55rem 0.8rem",
       color:"#000000",fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.7rem",
@@ -2537,47 +2511,23 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange}) {
 
 //  ROOT APP 
 function App() {
-  const [page, setPage] = useState("explore");
-  const [history, setHistory] = useState([]);
-  const [searchTags, setSearchTags] = useState([]);
-  const [palettes, setPalettes] = useState([]); // This stores the live database palettes
-  const [palace, setPalace] = useState(() => {
+  const [page,        setPage]       = useState("explore");
+  // History stack of palettes — back pops, navigate pushes
+  const [history,     setHistory]    = useState([]);   // array of palette objects
+  const [searchTags,  setSearchTags] = useState([]);
+  const [palace,      setPalace]     = useState(() => {
     try { return JSON.parse(localStorage.getItem("cc_palace") || "[]"); } catch { return []; }
   });
   const [toast, setToast] = useState(null);
-  const [likedIds, setLikedIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("cc_liked") || "[]"); } catch { return []; }
-  });
 
   const tk = TK["dark"];
   const selected = history[history.length - 1] || null;
-
-  // FETCH FROM DATABASE ON LOAD
-  useEffect(() => {
-    async function fetchPalettes() {
-      const { data, error } = await _supabase
-        .from('palettes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching palettes:", error);
-      } else {
-        setPalettes(data); // Successfully set the database data
-      }
-    }
-    fetchPalettes();
-  }, []);
 
   useEffect(() => {
     try { localStorage.setItem("cc_palace", JSON.stringify(palace)); } catch {}
   }, [palace]);
 
   useEffect(() => { document.body.style.background = tk.bg; }, [tk.bg]);
-
-  useEffect(() => {
-    try { localStorage.setItem("cc_liked", JSON.stringify(likedIds)); } catch {}
-  }, [likedIds]);
 
   const addToPalace = useCallback(p => {
     setPalace(prev => {
@@ -2587,37 +2537,82 @@ function App() {
     });
   }, []);
 
+  const [likedIds, setLikedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cc_liked") || "[]"); } catch { return []; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("cc_liked", JSON.stringify(likedIds)); } catch {}
+  }, [likedIds]);
+
   const likePalette = useCallback((id) => {
     setLikedIds(prev => {
       const isLiked = prev.includes(id);
-      const p = palettes.find(x => x.id === id);
+      const p = PALETTES.find(x => x.id === id);
       if (p) p.likes += isLiked ? -1 : 1;
       if (isLiked) return prev.filter(x => x !== id);
       return [...prev, id];
     });
-  }, [palettes]);
+  }, []);
 
   const removeFromPalace = useCallback(id => {
     setPalace(prev => prev.filter(p => p.id !== id));
     setToast("Removed from Palette Palace");
   }, []);
 
+  const createPalette = useCallback((colors, name) => {
+    const newId = Date.now();
+    function autoThemes(hexColors) {
+      const t = new Set(["custom"]);
+      hexColors.forEach(hex => {
+        const rgb = hexToRgb(hex); if(!rgb) return;
+        const r=rgb.r/255,g=rgb.g/255,b=rgb.b/255;
+        const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+        let h=0; if(d>0){if(max===r)h=((g-b)/d+6)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4; h/=6;}
+        const hd=h*360, lum=0.2126*r+0.7152*g+0.0722*b, sat=max===0?0:d/max;
+        if(lum<0.15) t.add("dark"); if(lum>0.7) t.add("light");
+        if(sat<0.15) t.add("minimal"); if(sat>0.7&&lum>0.3&&lum<0.7) t.add("neon");
+        if(hd>=20&&hd<70) t.add("warm"); if(hd>=70&&hd<160) t.add("nature");
+        if(hd>=160&&hd<220) t.add("cool"); if(hd>=220&&hd<270) t.add("calm");
+        if(hd>=270&&hd<330) t.add("pastel"); if(hd>=330||hd<20) t.add("warm");
+        if(lum>0.55&&sat<0.5) t.add("pastel");
+        if(hd>=30&&hd<60&&lum<0.5) t.add("earthy");
+      });
+      return [...t].slice(0,5);
+    }
+    const newP = {
+      id: newId,
+      name: name || "My Palette",
+      themes: autoThemes(colors),
+      likes: 0,
+      date: new Date().toISOString().slice(0,10),
+      liked: false,
+      colors: colors.map(hex => { const rgb = hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
+    };
+    PALETTES.unshift(newP);
+    setToast(` "${newP.name}" created!`);
+    return newP;
+  }, []);
   const navigateToPalette = useCallback(p => {
     setHistory(prev => [...prev, p]);
     setPage("details");
     window.scrollTo(0, 0);
   }, []);
 
+  // Open palette from explore (starts a fresh history)
   const openPalette = useCallback(p => {
     setHistory([p]);
     setPage("details");
     window.scrollTo(0, 0);
   }, []);
 
+  // Back: pop stack — if more palettes remain, stay on details; otherwise go to explore
   const goBack = useCallback(() => {
     setHistory(prev => {
       const next = prev.slice(0, -1);
-      if (next.length === 0) setPage("explore");
+      if (next.length === 0) {
+        setPage("explore");
+      }
       return next;
     });
     window.scrollTo(0, 0);
@@ -2631,7 +2626,7 @@ function App() {
   }, []);
 
   return (
-    <AppCtx.Provider value={{palace, addToPalace, removeFromPalace, tk, likePalette, likedIds, palettes}}>
+    <AppCtx.Provider value={{palace, addToPalace, removeFromPalace, tk, likePalette, likedIds, createPalette}}>
       {toast && <Toast msg={toast} onDone={() => setToast(null)}/>}
       {page === "explore" && (
         <div style={{animation:"pageIn 0.35s cubic-bezier(0.4,0,0.2,1)"}}>
