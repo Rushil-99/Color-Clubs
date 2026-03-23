@@ -1580,25 +1580,14 @@ function CreateWidget({tk, onCreated}) {
     try {
       const { data, error } = await _supabase.from("palettes").insert([payload]).select().single();
       if (error) throw error;
-      // Normalize the returned row fully
-      const saved = {
-        ...data,
-        name: data.Name || data.name || paletteName,
-        themes: data.themes || [],
-        likes: data.likes || 0,
-        date: data.date || (data.created_at ? data.created_at.slice(0,10) : new Date().toISOString().slice(0,10)),
-        colors: (data.colors || colors.map(h=>({hex:h}))).map(c => ({
-          hex: c.hex,
-          rgb: hexToRgb(c.hex) || {r:0,g:0,b:0}
-        }))
-      };
+      const saved = normalizePalette(data);
       onCreated && onCreated(saved);
       setShow(false); setName(""); setColors(["#FF6B6B","#FFD700","#4ECDC4","#45B7D1"]);
+      setSubmitError(null);
     } catch(err) {
       console.error("Supabase insert error:", err);
-      const msg = err?.message || err?.code || err?.error_description || JSON.stringify(err);
-      setSubmitError("DB error: " + msg + " — Check Supabase RLS policies (Table → Authentication → RLS). Add INSERT policy for anon role.");
-      // DON'T close modal — let user see the error
+      const msg = err?.message || err?.code || JSON.stringify(err);
+      setSubmitError("DB error: " + msg);
     } finally {
       setSubmitting(false);
     }
@@ -2597,18 +2586,17 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
 
 //  NORMALIZE PALETTE — convert raw Supabase row to app shape
 function normalizePalette(p) {
-  return {
-    ...p,
-    name: p.Name || p.name || "Untitled",
-    themes: Array.isArray(p.themes) ? p.themes : (p.themes ? [p.themes] : []),
-    likes:  typeof p.likes === "number" ? p.likes : 0,
-    date:   p.date || (p.created_at ? p.created_at.slice(0,10) : ""),
-    colors: (p.colors || []).map(c => {
-      const hex = typeof c === "string" ? c : (c.hex || "#000000");
-      const rgb = c.rgb || hexToRgb(hex) || {r:0,g:0,b:0};
-      return { hex, rgb };
-    })
-  };
+  const name = p.Name || p.name || "Untitled";
+  const themes = Array.isArray(p.themes) ? p.themes : (typeof p.themes === "string" ? [p.themes] : []);
+  const likes = typeof p.likes === "number" ? p.likes : 0;
+  const date = p.date || (p.created_at ? p.created_at.slice(0,10) : new Date().toISOString().slice(0,10));
+  const colors = (p.colors || []).map(c => {
+    const raw = typeof c === "string" ? c : (c.hex || "#000000");
+    const hex = raw.startsWith("#") ? raw.toUpperCase() : ("#" + raw).toUpperCase();
+    const rgb = (c && c.rgb) || hexToRgb(hex) || {r:0, g:0, b:0};
+    return { hex, rgb };
+  });
+  return { ...p, name, themes, likes, date, colors };
 }
 
 //  ROOT APP 
@@ -2694,43 +2682,52 @@ function App() {
     setLikedIds(prev => {
       const isLiked = prev.some(x => String(x) === sid);
       const delta = isLiked ? -1 : 1;
-      // Optimistic update on the palette list
+      // Optimistic local update
       setDbPalettes(ps => ps.map(p =>
-        String(p.id) === sid ? {...p, likes: Math.max(0, (p.likes||0) + delta)} : p
+        String(p.id) === sid ? {...p, likes: Math.max(0, (p.likes || 0) + delta)} : p
       ));
-      // Sync to Supabase
-      _supabase.from("palettes").select("likes").eq("id", id).single()
-        .then(({ data }) => {
-          if (data) _supabase.from("palettes").update({ likes: Math.max(0, (data.likes||0) + delta) }).eq("id", id);
-        }).catch(console.error);
+      // Only sync to Supabase for non-static palettes (static have ids 1-20)
+      const numId = Number(id);
+      if (numId > 20 || isNaN(numId)) {
+        _supabase.from("palettes").select("likes").eq("id", id).single()
+          .then(({ data }) => {
+            if (data) {
+              _supabase.from("palettes")
+                .update({ likes: Math.max(0, (data.likes || 0) + delta) })
+                .eq("id", id)
+                .catch(console.error);
+            }
+          }).catch(console.error);
+      }
       return isLiked ? prev.filter(x => String(x) !== sid) : [...prev, sid];
     });
   }, []);
 
   const removeFromPalace = useCallback(id => {
-    setPalace(prev => prev.filter(p => p.id !== id));
+    setPalace(prev => prev.filter(p => String(p.id) !== String(id)));
     setToast("Removed from Palette Palace");
   }, []);
 
   const createPalette = useCallback((colors, name) => {
+    // Local-only fallback (used if Supabase insert fails in CreateWidget)
     const newP = {
       id: Date.now(), name: name || "My Palette", themes: ["community"],
       likes: 0, date: new Date().toISOString().slice(0,10), liked: false,
-      colors: colors.map(hex => { const rgb=hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
+      colors: colors.map(hex => { const rgb = hexToRgb(hex); return {hex, rgb: rgb||{r:0,g:0,b:0}}; })
     };
     setDbPalettes(prev => [newP, ...prev]);
     setToast(`"${newP.name}" created!`);
     return newP;
   }, []);
 
+  // Called after successful Supabase insert — adds to grid immediately without refresh
   const handlePaletteCreated = useCallback(p => {
     const norm = normalizePalette(p);
     setDbPalettes(prev => {
-      // Don't add if already present
       if (prev.some(x => String(x.id) === String(norm.id))) return prev;
       return [norm, ...prev];
     });
-    setToast(`"${norm.name}" created!`);
+    setToast(`"${norm.name}" saved!`);
   }, []);
 
   const navigateToPalette = useCallback(p => {
