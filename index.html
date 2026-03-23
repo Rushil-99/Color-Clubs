@@ -312,8 +312,101 @@ function PaletteCard({palette, onClick, onHover}) {
   );
 }
 
+//  SIMILAR CARD — identical to PaletteCard but navigates instead of opening
+function SimilarCard({palette, onNavigate}) {
+  const {palace, addToPalace, removeFromPalace, likePalette, likedIds} = useApp();
+  const saved  = palace.some(p => String(p.id) === String(palette.id));
+  const liked  = likedIds && likedIds.some(id => String(id) === String(palette.id));
+  const [hov,  setHov]  = useState(false);
+
+  const bg     = palette.colors[0].hex;
+  const acc    = palette.colors[Math.min(1, palette.colors.length-1)].hex;
+  const dk     = isDark(bg);
+  const tc     = dk ? "#ffffff" : "#000000";
+  const mutedC = dk ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.4)";
+  const pillBg = dk ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.1)";
+  const pillBd = dk ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.12)";
+
+  return (
+    <div onClick={() => onNavigate(palette)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background:bg, borderRadius:"0.55rem", overflow:"hidden", cursor:"pointer",
+        border:`2px solid ${hov ? acc : "transparent"}`,
+        transform: hov ? "translateY(-5px) scale(1.01)" : "none",
+        boxShadow: hov ? `0 18px 44px rgba(0,0,0,0.65), 0 0 0 1px ${acc}` : "0 3px 12px rgba(0,0,0,0.35)",
+        transition:"all .2s cubic-bezier(.4,0,.2,1)", position:"relative"
+      }}>
+
+      {/* Ghost name */}
+      <div style={{
+        position:"absolute", top:"0.2rem", left:"0.55rem",
+        fontSize:"clamp(1.6rem,4.5vw,2.4rem)", fontWeight:900, lineHeight:0.88,
+        fontFamily:"'Space Grotesk','DM Sans',sans-serif", color:"transparent",
+        WebkitTextStroke:`1.5px ${dk?"rgba(255,255,255,0.2)":"rgba(0,0,0,0.1)"}`,
+        userSelect:"none", whiteSpace:"nowrap", overflow:"hidden",
+        pointerEvents:"none", zIndex:0, letterSpacing:"-0.04em", maxWidth:"100%"
+      }}>{palette.name.toUpperCase()}</div>
+
+      {/* Expandable color blocks */}
+      <div style={{display:"flex", height:120, position:"relative", zIndex:2, marginTop:"2.6rem"}}>
+        {palette.colors.map((c,i) => (
+          <div key={i}
+            style={{flex:1, background:c.hex, transition:"flex .28s cubic-bezier(.4,0,.2,1)",
+              display:"flex", flexDirection:"column", justifyContent:"flex-end",
+              padding:"0.4rem 0.35rem", overflow:"hidden"}}
+            onMouseEnter={e=>e.currentTarget.style.flex="3"}
+            onMouseLeave={e=>e.currentTarget.style.flex="1"}>
+            <span style={{
+              fontFamily:"'DM Sans',sans-serif", fontSize:"0.52rem", fontWeight:700,
+              color: isDark(c.hex) ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.65)",
+              letterSpacing:"0.04em", opacity: hov ? 1 : 0, transition:"opacity .2s",
+              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"
+            }}>{c.hex.toUpperCase()}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div style={{padding:"0.7rem 0.9rem 0.8rem", position:"relative", zIndex:2,
+        background: dk ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.72)", backdropFilter:"blur(4px)"}}>
+        <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif", fontWeight:900,
+          fontSize:"0.95rem", color:tc, letterSpacing:"-0.025em",
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+          marginBottom:"0.32rem"}}>{palette.name.toUpperCase()}</div>
+        <div style={{display:"flex", gap:"0.2rem", flexWrap:"wrap", marginBottom:"0.55rem"}}>
+          {palette.themes.slice(0,3).map(t => (
+            <span key={t} style={{fontFamily:"'DM Sans',sans-serif", fontSize:"0.52rem", fontWeight:700,
+              background:pillBg, color:tc, padding:"0.08rem 0.38rem",
+              letterSpacing:"0.07em", textTransform:"uppercase", border:`1px solid ${pillBd}`}}>{t}</span>
+          ))}
+        </div>
+        <div style={{display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+          <button onClick={e=>{e.stopPropagation(); likePalette(palette.id);}}
+            style={{display:"flex", alignItems:"center", gap:"0.2rem", background:"none",
+              border:"none", cursor:"pointer", color: liked ? "#F87171" : mutedC,
+              fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700,
+              transition:"color .15s", padding:0}}>
+            <span style={{fontSize:"0.72rem"}}>♥</span> {palette.likes || 0}
+          </button>
+          <Btn onClick={e=>{e.stopPropagation(); saved ? removeFromPalace(palette.id) : addToPalace(palette);}}
+            style={{background: saved?(dk?"rgba(255,255,255,0.9)":"rgba(0,0,0,0.85)"):pillBg,
+              border:`1.5px solid ${saved?(dk?"#fff":"#000"):pillBd}`,
+              borderRadius:"0.2rem", padding:"0.2rem 0.5rem",
+              color: saved?(dk?"#000":"#fff"):tc,
+              fontSize:"0.72rem", fontFamily:"'DM Sans',sans-serif"}}
+            hover={{background:dk?"rgba(255,255,255,0.95)":"rgba(0,0,0,0.9)", color:dk?"#000":"#fff"}}>
+            {saved ? "★" : "☆"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 //  DETAILS PAGE — full-bleed palette immersion
-function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavigate}) {
+function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavigate, palettes: propPalettes}) {
   const {palace, addToPalace, removeFromPalace, tk, likePalette, likedIds} = useApp();
   const saved = palace.some(p => String(p.id) === String(palette.id));
   const [toast, setToast] = useState(null);
@@ -325,7 +418,35 @@ function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavi
     setTimeout(() => setCopiedHex(null), 1200);
   };
 
-  const similar = PALETTES.filter(p => p.id !== palette.id && p.themes.some(t => palette.themes.includes(t))).slice(0,4);
+  // Similar: scored by color proximity + theme overlap, picks from full db palette list
+  const allPalettes = propPalettes && propPalettes.length > 0 ? propPalettes : PALETTES;
+  const similar = useMemo(() => {
+    const pid = String(palette.id);
+    const pColors = palette.colors.map(c => c.rgb || hexToRgb(c.hex) || {r:0,g:0,b:0});
+
+    return allPalettes
+      .filter(p => String(p.id) !== pid && p.colors && p.colors.length > 0)
+      .map(p => {
+        // Theme overlap: each shared theme = +4 points
+        const themeScore = p.themes.filter(t => palette.themes.includes(t)).length * 4;
+
+        // Color similarity: for each color in current palette, find closest match in candidate
+        const pRgbs = p.colors.map(c => c.rgb || hexToRgb(c.hex) || {r:0,g:0,b:0});
+        const colorScore = pColors.reduce((sum, ca) => {
+          const minDist = Math.min(...pRgbs.map(cb => colorDist(ca, cb)));
+          // Normalize: dist 0 = 1.0, dist 150 = 0.5, dist 300+ = 0
+          return sum + Math.max(0, 1 - minDist / 300);
+        }, 0) / Math.max(pColors.length, 1);
+
+        // Palette length similarity bonus (similar number of colors)
+        const lenBonus = Math.max(0, 1 - Math.abs(p.colors.length - palette.colors.length) / 5) * 0.5;
+
+        return { p, score: themeScore + colorScore * 3 + lenBonus };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map(x => x.p);
+  }, [palette.id, allPalettes]);
   const colors   = palette.colors;
   const c0  = colors[0].hex;
   const cM  = colors[Math.floor(colors.length/2)].hex;
@@ -549,111 +670,31 @@ function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavi
       {similar.length > 0 && (
         <div style={{position:"relative",zIndex:1,background:"#ffffff",padding:"3rem 1.5rem 4rem"}}>
           {/* Section header */}
-          <div style={{position:"relative",overflow:"hidden",marginBottom:"2rem",paddingBottom:"1.5rem",borderBottom:"1px solid #dddddd"}}>
+          <div style={{position:"relative",overflow:"hidden",marginBottom:"2rem",paddingBottom:"1.5rem",borderBottom:"2px solid #000000"}}>
             <div style={{
               position:"absolute",top:"-0.8rem",left:"-0.2rem",
               fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
               fontSize:"clamp(4rem,10vw,7rem)",color:"transparent",lineHeight:0.85,
-              WebkitTextStroke:"1.5px rgba(255,255,255,0.04)",
+              WebkitTextStroke:"1.5px rgba(0,0,0,0.05)",
               userSelect:"none",pointerEvents:"none",letterSpacing:"-0.04em"
             }}>SIMILAR</div>
             <div style={{position:"relative",zIndex:1}}>
               <div style={{fontSize:"0.5rem",fontWeight:800,letterSpacing:"0.2em",
                 textTransform:"uppercase",color:"#000000",marginBottom:"0.45rem",
-                fontFamily:"'DM Sans',sans-serif"}}>You might also like</div>
-              <div style={{
-                fontFamily:"'Space Grotesk','DM Sans',sans-serif",
-                fontWeight:900,fontSize:"clamp(2rem,5vw,2.8rem)",
-                color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9
-              }}>
+                fontFamily:"'DM Sans',sans-serif",borderLeft:"2px solid #000",paddingLeft:"0.5rem"}}>
+                You might also like
+              </div>
+              <div style={{fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
+                fontSize:"clamp(2rem,5vw,2.8rem)",color:"#000000",letterSpacing:"-0.04em",lineHeight:0.9}}>
                 SIMILAR<br/>
-                <span style={{WebkitTextStroke:"2px rgba(0,0,0,0.08)",color:"transparent"}}>VIBES</span>
+                <span style={{WebkitTextStroke:"2px rgba(0,0,0,0.12)",color:"transparent"}}>VIBES</span>
               </div>
             </div>
           </div>
 
-          {/* Cards — pixel-identical style to explore PaletteCards */}
+          {/* Cards — use SimilarCard component for full interactivity */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:"1rem"}}>
-            {similar.map((p) => {
-              const bg   = p.colors[0].hex;
-              const acc  = p.colors[Math.min(1,p.colors.length-1)].hex;
-              const dk   = isDark(bg);
-              const tc   = dk ? "#fff" : "#000";
-              const pill = dk ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.12)";
-              const pbdr = dk ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.12)";
-              const mut  = dk ? "rgba(0,0,0,0.28)" : "rgba(0,0,0,0.32)";
-              return (
-                <div key={p.id}
-                  onClick={()=>onNavigate(p)}
-                  style={{
-                    background:bg, overflow:"hidden", cursor:"pointer",
-                    border:"2px solid transparent", position:"relative",
-                    boxShadow:"0 3px 12px rgba(0,0,0,0.4)",
-                    transition:"all .2s cubic-bezier(.4,0,.2,1)"
-                  }}
-                  onMouseEnter={e=>{
-                    e.currentTarget.style.transform="translateY(-5px)";
-                    e.currentTarget.style.borderColor=acc;
-                    e.currentTarget.style.boxShadow=`0 18px 44px rgba(0,0,0,0.65), 0 0 0 1px ${acc}`;
-                  }}
-                  onMouseLeave={e=>{
-                    e.currentTarget.style.transform="";
-                    e.currentTarget.style.borderColor="transparent";
-                    e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,0.4)";
-                  }}>
-
-                  {/* Ghost outline name */}
-                  <div style={{
-                    position:"absolute",top:"0.2rem",left:"0.55rem",
-                    fontSize:"2.4rem",fontWeight:900,lineHeight:0.85,
-                    fontFamily:"'Space Grotesk','DM Sans',sans-serif",
-                    color:"transparent",
-                    WebkitTextStroke:`1.5px ${dk?"rgba(0,0,0,0.16)":"rgba(0,0,0,0.1)"}`,
-                    userSelect:"none",whiteSpace:"nowrap",overflow:"hidden",
-                    pointerEvents:"none",zIndex:0,letterSpacing:"-0.04em",maxWidth:"100%"
-                  }}>{p.name.toUpperCase()}</div>
-
-                  {/* Expandable color blocks — same as PaletteCard */}
-                  <div style={{display:"flex",height:120,position:"relative",zIndex:2,marginTop:"2.6rem"}}>
-                    {p.colors.map((c,ci)=>(
-                      <div key={ci}
-                        style={{flex:1,background:c.hex,transition:"flex .28s cubic-bezier(.4,0,.2,1)",
-                          display:"flex",flexDirection:"column",justifyContent:"flex-end",
-                          padding:"0.35rem 0.3rem",overflow:"hidden"}}
-                        onMouseEnter={e=>e.currentTarget.style.flex="3"}
-                        onMouseLeave={e=>e.currentTarget.style.flex="1"}>
-                        <span style={{
-                          fontFamily:"'DM Sans',sans-serif",fontSize:"0.5rem",fontWeight:700,
-                          color:isDark(c.hex)?"rgba(0,0,0,0.55)":"rgba(0,0,0,0.55)",
-                          letterSpacing:"0.03em",whiteSpace:"nowrap",
-                          overflow:"hidden",textOverflow:"ellipsis"
-                        }}>{c.hex.toUpperCase()}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Info footer — same as PaletteCard */}
-                  <div style={{padding:"0.65rem 0.85rem 0.7rem",zIndex:2,
-                    background: dk?"rgba(0,0,0,0.28)":"rgba(0,0,0,0.18)"}}>
-                    <div style={{
-                      fontFamily:"'Space Grotesk','DM Sans',sans-serif",fontWeight:900,
-                      fontSize:"0.88rem",color:tc,letterSpacing:"-0.025em",
-                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-                      marginBottom:"0.28rem"
-                    }}>{p.name.toUpperCase()}</div>
-                    <div style={{display:"flex",gap:"0.18rem",flexWrap:"wrap"}}>
-                      {p.themes.slice(0,3).map(t=>(
-                        <span key={t} style={{
-                          fontFamily:"'DM Sans',sans-serif",fontSize:"0.5rem",fontWeight:700,
-                          background:pill,color:tc,padding:"0.08rem 0.38rem",
-                          letterSpacing:"0.06em",textTransform:"uppercase",border:`1px solid ${pbdr}`
-                        }}>{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {similar.map((p) => <SimilarCard key={p.id} palette={p} onNavigate={onNavigate}/>)}
           </div>
         </div>
       )}
@@ -2072,8 +2113,8 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
   const [selectedCounts,  setSelectedCounts]  = useState([]);
   const [matchColors,     setMatchColors]      = useState([]);
   const [palaceOpen,      setPalaceOpen]       = useState(false);
-  const [sortMode,        setSortMode]         = useState("new"); // "new"|"popular"|"random"
-  const [randomSeed,      setRandomSeed]       = useState(0);
+  const [sortMode,        setSortMode]         = useState("random");
+  const [randomSeed,      setRandomSeed]       = useState(() => Math.random());
 
   // Sync tags up to App when they change
   useEffect(() => { onTagsChange && onTagsChange(tags); }, [tags]);
@@ -2250,9 +2291,15 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
   const sorted = useMemo(() => {
     const arr = [...filtered];
     if (sortMode === "popular") return arr.sort((a,b) => (b.likes||0) - (a.likes||0));
-    if (sortMode === "random")  return arr.sort(() => Math.sin(randomSeed + arr.indexOf(arr[0])) - 0.5);
-    // "new" = sort by date descending
-    return arr.sort((a,b) => (b.date||"") > (a.date||"") ? 1 : -1);
+    if (sortMode === "new") return arr.sort((a,b) => (b.date||"") > (a.date||"") ? 1 : -1);
+    // "random" — seeded Fisher-Yates so it's stable per seed but truly shuffled
+    let s = randomSeed * 2147483647 | 0;
+    const rng = () => { s = Math.imul(s ^ (s >>> 15), s | 1); s ^= s + Math.imul(s ^ (s >>> 7), s | 61); return ((s ^ (s >>> 14)) >>> 0) / 4294967296; };
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }, [filtered, sortMode, randomSeed]);
 
   const activePal = activePaletteRef.current;
@@ -2387,6 +2434,17 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
                   {label}
                 </button>
               ))}
+              {sortMode === "random" && (
+                <button onClick={() => setRandomSeed(Math.random())}
+                  style={{fontFamily:"'DM Sans',sans-serif",fontSize:"0.68rem",fontWeight:800,
+                    padding:"0.32rem 0.7rem",cursor:"pointer",textAlign:"left",
+                    border:"1.5px dashed #555",background:"transparent",color:"#888",
+                    letterSpacing:"0.06em",transition:"all .15s",marginTop:"0.1rem"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#000";e.currentTarget.style.color="#000";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#555";e.currentTarget.style.color="#888";}}>
+                  ↺ Reshuffle
+                </button>
+              )}
             </div>
           </div>
 
