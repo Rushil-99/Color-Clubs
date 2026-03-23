@@ -196,15 +196,14 @@ function SLbl({children, tk}) {
 //  PALETTE CARD 
 function PaletteCard({palette, onClick, onHover}) {
   const {palace, addToPalace, removeFromPalace, tk, likePalette, likedIds} = useApp();
-  const saved  = palace.some(p => p.id === palette.id);
-  const liked  = likedIds && likedIds.includes(palette.id);
+  const saved  = palace.some(p => String(p.id) === String(palette.id));
+  // Normalize id comparison — Supabase returns int, localStorage stores whatever type
+  const liked  = likedIds && likedIds.some(id => String(id) === String(palette.id));
   const [hov, setHov] = useState(false);
-  const [likeCount, setLikeCount] = useState(palette.likes || 0);
 
   const handleLike = (e) => {
     e.stopPropagation();
     likePalette(palette.id);
-    setLikeCount(c => liked ? c-1 : c+1);
   };
 
   const bgColor = palette.colors[0].hex;
@@ -293,7 +292,7 @@ function PaletteCard({palette, onClick, onHover}) {
               border:"none", cursor:"pointer", color: liked ? "#F87171" : mutedC,
               fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700,
               transition:"color .15s", padding:0}}>
-            <span style={{fontSize:"0.72rem"}}>♥</span> {likeCount}
+            <span style={{fontSize:"0.72rem"}}>♥</span> {palette.likes || 0}
           </button>
           <Btn
             onClick={e => { e.stopPropagation(); saved ? removeFromPalace(palette.id) : addToPalace(palette); }}
@@ -316,7 +315,7 @@ function PaletteCard({palette, onClick, onHover}) {
 //  DETAILS PAGE — full-bleed palette immersion
 function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavigate}) {
   const {palace, addToPalace, removeFromPalace, tk, likePalette, likedIds} = useApp();
-  const saved = palace.some(p => p.id === palette.id);
+  const saved = palace.some(p => String(p.id) === String(palette.id));
   const [toast, setToast] = useState(null);
   const [copiedHex, setCopiedHex] = useState(null);
   const copy = (txt, lbl) => {
@@ -515,7 +514,7 @@ function DetailsPage({palette, historyDepth, onBack, onGoHome, onGoTheme, onNavi
         borderTop:`3px solid ${c0}`,borderBottom:`3px solid ${c0}`
       }}>
         {(()=>{
-          const liked=likedIds&&likedIds.includes(palette.id);
+          const liked=likedIds&&likedIds.some(id=>String(id)===String(palette.id));
           const tc2=isDark(c1)?"#fff":"#000";
           return (<>
             <button onClick={()=>likePalette(palette.id)}
@@ -2674,7 +2673,7 @@ function App() {
 
   const addToPalace = useCallback(p => {
     setPalace(prev => {
-      if (prev.some(x => x.id === p.id)) { setToast("Already in Palette Palace!"); return prev; }
+      if (prev.some(x => String(x.id) === String(p.id))) { setToast("Already in Palette Palace!"); return prev; }
       setToast(`"${p.name}" added`);
       return [...prev, p];
     });
@@ -2691,19 +2690,20 @@ function App() {
   }, [likedIds]);
 
   const likePalette = useCallback((id) => {
+    const sid = String(id);
     setLikedIds(prev => {
-      const isLiked = prev.includes(id);
+      const isLiked = prev.some(x => String(x) === sid);
       const delta = isLiked ? -1 : 1;
-      // Optimistic local update
+      // Optimistic update on the palette list
       setDbPalettes(ps => ps.map(p =>
-        String(p.id) === String(id) ? {...p, likes: (p.likes||0) + delta} : p
+        String(p.id) === sid ? {...p, likes: Math.max(0, (p.likes||0) + delta)} : p
       ));
       // Sync to Supabase
       _supabase.from("palettes").select("likes").eq("id", id).single()
         .then(({ data }) => {
-          if (data) _supabase.from("palettes").update({ likes: (data.likes||0) + delta }).eq("id", id);
+          if (data) _supabase.from("palettes").update({ likes: Math.max(0, (data.likes||0) + delta) }).eq("id", id);
         }).catch(console.error);
-      return isLiked ? prev.filter(x => x !== id) : [...prev, id];
+      return isLiked ? prev.filter(x => String(x) !== sid) : [...prev, sid];
     });
   }, []);
 
