@@ -2297,9 +2297,9 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
 
       {/* ── HEADER ── */}
       <header style={{
-        padding:"0.85rem 1.5rem",
-        display:"flex",alignItems:"center",gap:"1rem",
-        borderBottom:"2px solid #000000",
+        padding:"1.4rem 2rem",
+        display:"flex",alignItems:"center",gap:"1.25rem",
+        borderBottom:"3px solid #000000",
         background:"#ffffff",
         position:"sticky",top:0,zIndex:100,flexWrap:"wrap"
       }}>
@@ -2307,7 +2307,7 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
         <div style={{display:"flex",alignItems:"center",flexShrink:0}}>
           <div style={{
             fontFamily:"'Space Grotesk','DM Sans',sans-serif",
-            fontWeight:900,fontSize:"1.25rem",color:"#000000",letterSpacing:"-0.05em",lineHeight:1
+            fontWeight:900,fontSize:"2rem",color:"#000000",letterSpacing:"-0.06em",lineHeight:1
           }}>COLOR CLUBS</div>
         </div>
 
@@ -2322,17 +2322,17 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
             marginLeft:"auto",flexShrink:0,
             background:"transparent",
             border:"2px solid #000000",
-            padding:"0.45rem 1rem",color:"#000000",
-            fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.72rem",
+            padding:"0.65rem 1.4rem",color:"#000000",
+            fontFamily:"'DM Sans',sans-serif",fontWeight:800,fontSize:"0.82rem",
             letterSpacing:"0.08em",textTransform:"uppercase",
-            display:"flex",alignItems:"center",gap:"0.4rem"
+            display:"flex",alignItems:"center",gap:"0.5rem"
           }}
           hover={{background:"#000000",color:"#ffffff"}}>
           ★ PALACE
           {palace.length > 0 && (
             <span style={{
               background:"#000000",color:"#ffffff",
-              padding:"0.05rem 0.4rem",fontSize:"0.62rem",fontWeight:900,
+              padding:"0.08rem 0.5rem",fontSize:"0.72rem",fontWeight:900,
               marginLeft:"0.1rem"
             }}>{palace.length}</span>
           )}
@@ -2348,8 +2348,8 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
           borderRight:"2px solid #000000",
           background:"#ffffff",
           overflowY:"auto",
-          height:"calc(100vh - 62px)",
-          position:"sticky",top:62,
+          height:"calc(100vh - 90px)",
+          position:"sticky",top:90,
           display:"flex",flexDirection:"column"
         }}>
 
@@ -2483,7 +2483,7 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
 
           {/* TOOLS */}
           <div style={{padding:"1rem 1.2rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
-            <CreateWidget tk={tk} onCreated={p => { onPaletteCreated && onPaletteCreated(p); onSelectPalette(p); }}/>
+            <CreateWidget tk={tk} onCreated={p => { onPaletteCreated && onPaletteCreated(p); }}/>
           </div>
         </aside>
 
@@ -2596,6 +2596,22 @@ function ExplorePage({onSelectPalette, searchTags, onTagsChange, palettes: propP
   );
 }
 
+//  NORMALIZE PALETTE — convert raw Supabase row to app shape
+function normalizePalette(p) {
+  return {
+    ...p,
+    name: p.Name || p.name || "Untitled",
+    themes: Array.isArray(p.themes) ? p.themes : (p.themes ? [p.themes] : []),
+    likes:  typeof p.likes === "number" ? p.likes : 0,
+    date:   p.date || (p.created_at ? p.created_at.slice(0,10) : ""),
+    colors: (p.colors || []).map(c => {
+      const hex = typeof c === "string" ? c : (c.hex || "#000000");
+      const rgb = c.rgb || hexToRgb(hex) || {r:0,g:0,b:0};
+      return { hex, rgb };
+    })
+  };
+}
+
 //  ROOT APP 
 function App() {
   const [page,        setPage]       = useState("explore");
@@ -2609,25 +2625,8 @@ function App() {
   // DB PALETTES — loaded from Supabase, merged with static + palace
   const [dbPalettes,  setDbPalettes] = useState(PALETTES);
 
-  // Helper: normalize a raw palette row from Supabase into the app's expected shape
-  function normalizePalette(p) {
-    return {
-      ...p,
-      name: p.Name || p.name || "Untitled",   // Supabase column is "Name" (capital N)
-      themes: Array.isArray(p.themes) ? p.themes : (p.themes ? [p.themes] : []),
-      likes:  typeof p.likes === "number" ? p.likes : 0,
-      date:   p.date || (p.created_at ? p.created_at.slice(0,10) : ""),
-      colors: (p.colors || []).map(c => {
-        const hex = (c.hex || c).toUpperCase().startsWith("#") ? (c.hex || c) : "#"+(c.hex||c);
-        const rgb = c.rgb || hexToRgb(hex) || {r:0,g:0,b:0};
-        return { hex, rgb };
-      })
-    };
-  }
-
   useEffect(() => {
     async function fetchPalettes() {
-      // Load palace from localStorage so we can merge it in
       let palaceLocal = [];
       try { palaceLocal = JSON.parse(localStorage.getItem("cc_palace") || "[]"); } catch {}
 
@@ -2636,26 +2635,29 @@ function App() {
           .from("palettes")
           .select("*")
           .order("created_at", { ascending: false });
-        if (error) { console.error("Supabase fetch:", error); throw error; }
+        if (error) throw error;
 
-        const normalized = (data || []).map(normalizePalette);
-        const dbIds = new Set(normalized.map(p => String(p.id)));
+        const dbRows = (data || []).map(normalizePalette);
 
-        // Add static palettes not in db
-        const localOnly = PALETTES.filter(p => !dbIds.has(String(p.id)));
+        // Static palettes always stay. DB palettes are shown in addition.
+        // Only deduplicate if a DB row has the exact same id as a static one.
+        const dbIds = new Set(dbRows.map(p => String(p.id)));
+        const staticKept = PALETTES.filter(p => !dbIds.has(String(p.id)));
 
-        // Add palace palettes not already in db or static (user-created, saved locally)
+        // Palace palettes not already in db or static
+        const allIds = new Set([...dbIds, ...staticKept.map(p => String(p.id))]);
         const palaceExtra = palaceLocal
-          .filter(p => !dbIds.has(String(p.id)) && !PALETTES.some(s => String(s.id) === String(p.id)))
+          .filter(p => !allIds.has(String(p.id)))
           .map(normalizePalette);
 
-        setDbPalettes([...normalized, ...palaceExtra, ...localOnly]);
+        setDbPalettes([...dbRows, ...palaceExtra, ...staticKept]);
       } catch(err) {
-        // Fallback: db + palace + static
-        const palaceNorm = palaceLocal.map(normalizePalette);
-        const palaceIds  = new Set(palaceNorm.map(p => String(p.id)));
-        const staticExtra = PALETTES.filter(p => !palaceIds.has(String(p.id)));
-        setDbPalettes([...palaceNorm, ...staticExtra]);
+        console.error("Supabase fetch error:", err);
+        const staticIds = new Set(PALETTES.map(p => String(p.id)));
+        const palaceExtra = palaceLocal
+          .filter(p => !staticIds.has(String(p.id)))
+          .map(normalizePalette);
+        setDbPalettes([...palaceExtra, ...PALETTES]);
       }
     }
     fetchPalettes();
@@ -2723,7 +2725,11 @@ function App() {
 
   const handlePaletteCreated = useCallback(p => {
     const norm = normalizePalette(p);
-    setDbPalettes(prev => prev.some(x => String(x.id)===String(norm.id)) ? prev : [norm, ...prev]);
+    setDbPalettes(prev => {
+      // Don't add if already present
+      if (prev.some(x => String(x.id) === String(norm.id))) return prev;
+      return [norm, ...prev];
+    });
     setToast(`"${norm.name}" created!`);
   }, []);
 
